@@ -1,0 +1,194 @@
+.panel {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	box-sizing: border-box;
+	padding: 10px;
+	gap: 2px;
+	font-size: 13px;
+	color: var(--foreground);
+	/* The window carries macOS vibrancy. This wash sits on top of it: light
+	   enough to stay translucent, opaque enough that the panel is still legible
+	   over a busy wallpaper if the system declines to render the blur. */
+	background: color-mix(in oklab, var(--surface) 72%, transparent);
+	border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+	border-radius: 12px;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 2px 6px 8px;
+}
+
+.headerIcon {
+	width: 18px;
+	height: 18px;
+	border-radius: 5px;
+}
+
+.headerTitle {
+	flex: 1;
+	min-width: 0;
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+
+.recordingBadge {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	color: var(--muted);
+}
+
+.recordingDot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--destructive);
+	animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.35;
+	}
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	padding: 7px 8px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: default;
+	transition: background 120ms ease;
+}
+
+.row:hover:not(:disabled) {
+	background: color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.row:disabled {
+	opacity: 0.45;
+}
+
+.rowIcon {
+	display: flex;
+	flex: 0 0 auto;
+	color: var(--muted);
+}
+
+.rowLabel {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.rowValue {
+	flex: 0 1 auto;
+	max-width: 140px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+.rowOn {
+	color: var(--accent);
+}
+
+.sectionLabel {
+	padding: 8px 8px 4px;
+	font-size: 9px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	max-height: 212px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-width: thin;
+	scrollbar-color: var(--separator) transparent;
+}
+
+.list::-webkit-scrollbar {
+	width: 4px;
+}
+
+.list::-webkit-scrollbar-thumb {
+	background: var(--separator);
+	border-radius: 10px;
+}
+
+.divider {
+	height: 1px;
+	margin: 6px 4px;
+	background: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+.recordButton {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	width: 100%;
+	margin-top: 4px;
+	padding: 9px 12px;
+	border: 0;
+	border-radius: 9px;
+	background: var(--accent);
+	color: var(--accent-foreground, #fff);
+	font: inherit;
+	font-weight: 600;
+	cursor: default;
+	transition: filter 120ms ease;
+}
+
+.recordButton:hover:not(:disabled) {
+	filter: brightness(1.08);
+}
+
+.recordButton:disabled {
+	opacity: 0.5;
+}
+
+.recordButtonStop {
+	background: var(--destructive);
+}
+
+.empty {
+	padding: 10px 8px;
+	font-size: 12px;
+	color: var(--muted);
+	text-align: center;
+}
+
+.rowIndented {
+	padding-left: 26px;
+	font-size: 12.5px;
+}

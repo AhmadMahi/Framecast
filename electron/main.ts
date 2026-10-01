@@ -54,6 +54,7 @@ import {
 	createSourceSelectorWindow,
 	destroyMenuBarPanelWindow,
 	getHudOverlayWindow,
+	prewarmMenuBarPanelWindow,
 	hideMenuBarPanelWindow,
 	isMenuBarPanelVisible,
 	resizeMenuBarPanelWindow,
@@ -609,6 +610,9 @@ function isPrimaryTrayClick(event: unknown) {
 function createTray() {
 	tray = new Tray(getDefaultTrayIcon());
 	console.log(`[main] Tray created (platform: ${process.platform})`);
+	if (process.platform === "darwin") {
+		prewarmMenuBarPanelWindow();
+	}
 	tray.on("click", (event) => {
 		if (process.platform === "win32" && !isPrimaryTrayClick(event)) {
 			return;

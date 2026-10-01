@@ -1291,9 +1291,33 @@ export function showMenuBarPanelWindow(anchor: { x: number; y: number }): Browse
 	const win = getMenuBarPanelWindow() ?? createMenuBarPanelWindow();
 	const bounds = getMenuBarPanelBounds(anchor, win.getBounds().height);
 	win.setBounds(bounds, false);
+
+	// Showing before the renderer has painted would flash an empty translucent
+	// box, so a cold panel waits for its first load.
+	if (win.webContents.isLoading()) {
+		win.webContents.once("did-finish-load", () => {
+			if (!win.isDestroyed()) {
+				win.setBounds(getMenuBarPanelBounds(anchor, win.getBounds().height), false);
+				win.show();
+				win.focus();
+			}
+		});
+		return win;
+	}
+
 	win.show();
 	win.focus();
 	return win;
+}
+
+/**
+ * Builds the panel ahead of the first click so opening it from the menu bar is
+ * instant, the way a native menu bar popover behaves.
+ */
+export function prewarmMenuBarPanelWindow() {
+	if (!getMenuBarPanelWindow()) {
+		createMenuBarPanelWindow();
+	}
 }
 
 export function hideMenuBarPanelWindow() {

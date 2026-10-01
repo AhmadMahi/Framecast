@@ -224,7 +224,7 @@ export function MenuBarPanel() {
 		<div ref={panelRef} className={`${styles.panel} launch-theme`}>
 			<div className={styles.header}>
 				<img src="/app-icons/recordly-128.png" alt="" className={styles.headerIcon} />
-				<span className={styles.headerTitle}>{t("app.name", "Recordly")}</span>
+				<span className={styles.headerTitle}>{t("app.name", "Framecast")}</span>
 				{recording ? (
 					<span className={styles.recordingBadge}>
 						<span className={styles.recordingDot} />

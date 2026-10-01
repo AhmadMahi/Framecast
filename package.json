@@ -1,15 +1,15 @@
 {
-	"name": "recordly",
+	"name": "framecast",
 	"productName": "Recordly",
 	"description": "A free, creator-focused screen recorder with auto-zoom, cursor effects, backgrounds, annotations, and more - built for polished videos out of the box.",
 	"author": "webadderall",
-	"homepage": "https://github.com/AhmadMahi/Recordly",
+	"homepage": "https://github.com/AhmadMahi/Framecast",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/AhmadMahi/Recordly.git"
+		"url": "https://github.com/AhmadMahi/Framecast.git"
 	},
 	"bugs": {
-		"url": "https://github.com/AhmadMahi/Recordly/issues"
+		"url": "https://github.com/AhmadMahi/Framecast/issues"
 	},
 	"private": true,
 	"version": "1.4.0",

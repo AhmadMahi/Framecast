@@ -180,7 +180,7 @@ export function RecordlySignInDialog({
 									<Modal.Header className="items-center gap-4 text-center">
 										<div
 											className="flex items-center gap-3"
-											aria-label="Recordly"
+											aria-label="Framecast"
 										>
 											<img
 												src={`${import.meta.env.BASE_URL}app-icons/recordly-128.png`}

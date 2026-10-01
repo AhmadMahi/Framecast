@@ -902,7 +902,7 @@ function updateTrayMenu(recording: boolean = false) {
 	trayRecordingActive = recording;
 	if (!tray) return;
 	const trayIcon = recording ? getRecordingTrayIcon() : getDefaultTrayIcon();
-	const trayToolTip = recording ? `Recording: ${selectedSourceName}` : "Recordly";
+	const trayToolTip = recording ? `Recording: ${selectedSourceName}` : "Framecast";
 	const menuTemplate = recording
 		? [
 				{
@@ -1113,7 +1113,7 @@ app.whenReady().then(async () => {
 	if (startupAuthCallback) authCallbacks.dispatch(startupAuthCallback);
 
 	if (process.platform === "win32") {
-		app.setAppUserModelId("dev.recordly.app");
+		app.setAppUserModelId("dev.framecast.app");
 	}
 
 	session.defaultSession.setPermissionCheckHandler(

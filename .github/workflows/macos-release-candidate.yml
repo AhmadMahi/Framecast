@@ -40,8 +40,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ "${GITHUB_REPOSITORY,,}" != "ahmadmahi/recordly" ]]; then
-            echo "This workflow may run only in AhmadMahi/Recordly."
+          if [[ "${GITHUB_REPOSITORY,,}" != "ahmadmahi/framecast" ]]; then
+            echo "This workflow may run only in AhmadMahi/Framecast."
             exit 1
           fi
 

@@ -1,7 +1,7 @@
 {
 	"app": {
-		"name": "Recordly",
-		"editorTitle": "Recordly Editor",
+		"name": "Framecast",
+		"editorTitle": "Framecast-editor",
 		"subtitle": "Schermopname en bewerking",
 		"language": "Taal",
 		"manageRecordings": "Opnamemap openen"

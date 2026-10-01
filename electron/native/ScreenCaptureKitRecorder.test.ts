@@ -95,9 +95,11 @@ describe("ScreenCaptureKitRecorder window capture", () => {
 	});
 });
 
-
 describe("ScreenCaptureKitRecorder first frame timing", () => {
-	const callback = recorderSource.slice(recorderSource.indexOf("func stream(_ stream:"), recorderSource.indexOf("func stream(_ stream:") + 5000);
+	const callback = recorderSource.slice(
+		recorderSource.indexOf("func stream(_ stream:"),
+		recorderSource.indexOf("func stream(_ stream:") + 5000,
+	);
 	it("validates a complete frame and writer readiness before setting time zero", () => {
 		const clock = callback.indexOf("adjustedPresentationTime(for:");
 		expect(clock).toBeGreaterThan(callback.indexOf("status == .complete"));

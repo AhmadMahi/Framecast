@@ -25,7 +25,7 @@ function callbackHeaders(contentType: string) {
 }
 
 export function createAuthCallbackController({ isDev, focusApp }: AuthCallbackOptions) {
-	const protocol = isDev ? "recordly-dev" : "recordly";
+	const protocol = isDev ? "framecast-dev" : "framecast";
 	let pendingUrl: string | null = null;
 	let server: Server | null = null;
 

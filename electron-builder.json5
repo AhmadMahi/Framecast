@@ -14,7 +14,7 @@
   "protocols": [
     {
       "name": "Framecast authentication",
-      "schemes": ["framecast", "recordly"]
+      "schemes": ["framecast"]
     }
   ],
   "npmRebuild": true,

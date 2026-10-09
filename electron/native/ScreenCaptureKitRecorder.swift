@@ -1048,9 +1048,14 @@ final class ContentPickerSession {
 		@unknown default: style = "unknown"
 		}
 
+		// `includedWindows` only exists in the macOS 15.2+ SDK, and the release
+		// runners build with older ones, so read it dynamically rather than by
+		// name. On older systems the count simply stays 0.
 		var windowCount = 0
-		if #available(macOS 15.2, *) {
-			windowCount = filter.includedWindows.count
+		if #available(macOS 15.2, *),
+		   filter.responds(to: NSSelectorFromString("includedWindows")),
+		   let windows = filter.value(forKey: "includedWindows") as? [SCWindow] {
+			windowCount = windows.count
 		}
 
 		let rect = filter.contentRect

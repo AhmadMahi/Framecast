@@ -18,6 +18,18 @@ export function useLaunchWindowActions() {
 		});
 	}, []);
 
+	// macOS: Apple's content picker replaces the in-app list, the way Zoom
+	// shares a window. The main process keeps the parked selection.
+	const handlePickSource = useCallback(async () => {
+		const result = await window.electronAPI.pickCaptureSource?.();
+		if (!result?.success || result.cancelled || !result.source) {
+			return;
+		}
+		setSelectedSource(result.source.name);
+		setHasSelectedSource(true);
+		window.electronAPI.showSourceHighlight?.(result.source);
+	}, []);
+
 	const openVideoFile = useCallback(async () => {
 		const result = await window.electronAPI.openVideoFilePicker({ includeProjects: true });
 		if (result.canceled) return;
@@ -67,6 +79,7 @@ export function useLaunchWindowActions() {
 		hasSelectedSource,
 		projectLibraryEntries,
 		handleSourceSelect,
+		handlePickSource,
 		openVideoFile,
 		openProjectFromLibrary,
 		syncSelectedSource,

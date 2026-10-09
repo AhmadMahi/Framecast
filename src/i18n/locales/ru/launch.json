@@ -14,6 +14,13 @@
 		"systemAudio": "Системный звук",
 		"stopRecording": "Остановить запись",
 		"startRecording": "Начать запись",
+		"pauseRecording": "Приостановить запись",
+		"resumeRecording": "Продолжить запись",
+		"camera": "Камера",
+		"turnOnCamera": "Включить камеру",
+		"turnOffCamera": "Выключить камеру",
+		"checkForUpdates": "Проверить обновления",
+		"openSettings": "Открыть настройки",
 		"on": "Вкл",
 		"off": "Выкл",
 		"recordingFolder": "Место сохранения: {{path}}",
@@ -101,6 +108,7 @@
 		"notNow": "Не сейчас",
 		"updateNow": "Обновить сейчас",
 		"restartToUpdate": "Перезапустить для обновления",
-		"tryAgain": "Повторить"
+		"tryAgain": "Повторить",
+		"openDownloadPage": "Открыть страницу загрузки"
 	}
 }

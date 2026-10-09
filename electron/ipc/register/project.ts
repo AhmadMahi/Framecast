@@ -495,7 +495,7 @@ export function registerProjectHandlers() {
 					title: "Save Recordly Project",
 					defaultPath: path.join(projectsDir, defaultName),
 					filters: [
-						{ name: "Recordly Project", extensions: [PROJECT_FILE_EXTENSION] },
+						{ name: "Framecast Project", extensions: [PROJECT_FILE_EXTENSION] },
 						{ name: "JSON", extensions: ["json"] },
 					],
 					properties: ["createDirectory", "showOverwriteConfirmation"],
@@ -649,7 +649,7 @@ export function registerProjectHandlers() {
 				defaultPath: projectsDir,
 				filters: [
 					{
-						name: "Recordly Project",
+						name: "Framecast Project",
 						extensions: [PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS],
 					},
 					{ name: "JSON", extensions: ["json"] },

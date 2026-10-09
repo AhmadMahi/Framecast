@@ -28,6 +28,11 @@ import {
 	killWindowsCaptureProcess,
 	registerIpcHandlers,
 } from "./ipc/handlers";
+import {
+	cancelPendingPick,
+	hasParkedPickerSelection,
+	pickNativeCaptureSource,
+} from "./ipc/register/recording";
 import { ensureMediaServer } from "./mediaServer";
 import { hardenWebContentsNavigation, shouldHardenWebContentsType } from "./navigationPolicy";
 import { shouldGrantDisplayCapture, shouldGrantMediaPermission } from "./permissionPolicy";
@@ -42,6 +47,7 @@ import {
 	getUpdaterLogPath,
 	getUpdateStatusSummary,
 	installDownloadedUpdateNow,
+	openUpdateDownloadPage,
 	previewNativeUpdateDialog,
 	previewUpdateToast,
 	setExperimentalUpdatesEnabled,
@@ -833,6 +839,14 @@ ipcMain.on("menu-bar-panel:resize", (_event, height: number) => {
 ipcMain.handle("menu-bar-panel:start-recording", async () => {
 	hideMenuBarPanelWindow();
 
+	// Like Zoom: choose what to record in Apple's picker, then record it.
+	if (process.platform === "darwin" && !hasParkedPickerSelection()) {
+		const pick = await pickNativeCaptureSource();
+		if (!pick.success || pick.cancelled) {
+			return { success: false, cancelled: true };
+		}
+	}
+
 	let hud = getHudOverlayWindow();
 	if (!hud || hud.isDestroyed()) {
 		createWindow();
@@ -870,6 +884,49 @@ ipcMain.handle("menu-bar-panel:open-projects", () => {
 	hideMenuBarPanelWindow();
 	createEditorWindowWrapper();
 	return { success: true };
+});
+
+function relayToHud(channel: "pause-recording-from-tray" | "resume-recording-from-tray") {
+	hideMenuBarPanelWindow();
+	const hud = getHudOverlayWindow();
+	if (hud && !hud.isDestroyed()) {
+		hud.webContents.send(channel);
+		return { success: true };
+	}
+	return { success: false };
+}
+
+ipcMain.handle("menu-bar-panel:pause-recording", () => relayToHud("pause-recording-from-tray"));
+ipcMain.handle("menu-bar-panel:resume-recording", () => relayToHud("resume-recording-from-tray"));
+
+ipcMain.handle("menu-bar-panel:open-settings", () => {
+	hideMenuBarPanelWindow();
+	const editor = createEditorWindowWrapper();
+	if (!editor || editor.isDestroyed()) {
+		return { success: false };
+	}
+
+	// The dashboard mounts lazily, so repeat the request a few times; the
+	// renderer treats it as idempotent.
+	const send = () => {
+		if (!editor.isDestroyed()) {
+			editor.webContents.send("open-dashboard-section", "settings");
+		}
+	};
+	for (const delay of [0, 400, 1200, 2500]) {
+		setTimeout(send, delay);
+	}
+	return { success: true };
+});
+
+ipcMain.handle("menu-bar-panel:check-updates", async () => {
+	hideMenuBarPanelWindow();
+	await checkForAppUpdates(getUpdateDialogWindow, { manual: true });
+	return { success: true };
+});
+
+ipcMain.handle("open-update-download-page", async () => {
+	await openUpdateDownloadPage();
 });
 
 ipcMain.handle("get-menu-bar-icon", () => {
@@ -1070,6 +1127,7 @@ function createSourceSelectorWindowWrapper() {
 // On macOS, applications and their menu bar stay active until the user quits
 // explicitly with Cmd + Q.
 app.on("before-quit", () => {
+	cancelPendingPick();
 	isAppQuitting = true;
 	authCallbacks.close();
 	void clearRecordingTrashUndo().catch((error) =>

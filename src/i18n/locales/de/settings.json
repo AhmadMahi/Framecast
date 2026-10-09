@@ -256,6 +256,9 @@
 	"updates": {
 		"experimentalDescription": "Sie haben experimentelle Updates aktiviert und können daher das neueste Update von Recordly testen, bevor es allgemein verfügbar ist.",
 		"title": "Updates",
+		"check": "Nach Updates suchen",
+		"checkDescription": "Sucht nach einer neueren Version im Release-Kanal.",
+		"checkNow": "Jetzt suchen",
 		"experimental": "Experimentelle Updates",
 		"saveFailed": "Update-Kanal konnte nicht geändert werden."
 	}

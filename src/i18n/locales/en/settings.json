@@ -1,6 +1,9 @@
 {
 	"updates": {
 		"title": "Updates",
+		"check": "Check for updates",
+		"checkDescription": "Looks for a newer version on the release channel.",
+		"checkNow": "Check now",
 		"experimental": "Experimental updates",
 		"experimentalDescription": "You've opted into experimental updates so you have the choice to test the latest update of Recordly before it's widely available.",
 		"saveFailed": "Failed to change the update channel."

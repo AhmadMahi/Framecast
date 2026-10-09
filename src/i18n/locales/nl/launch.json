@@ -14,6 +14,13 @@
 		"systemAudio": "Systeemaudio",
 		"stopRecording": "Opname stoppen",
 		"startRecording": "Opname starten",
+		"pauseRecording": "Opname pauzeren",
+		"resumeRecording": "Opname hervatten",
+		"camera": "Camera",
+		"turnOnCamera": "Camera inschakelen",
+		"turnOffCamera": "Camera uitschakelen",
+		"checkForUpdates": "Controleren op updates",
+		"openSettings": "Instellingen openen",
 		"on": "Aan",
 		"off": "Uit",
 		"recordingFolder": "Opnamepad: {{path}}",
@@ -101,6 +108,7 @@
 		"notNow": "Niet nu",
 		"updateNow": "Nu updaten",
 		"restartToUpdate": "Opnieuw starten om te updaten",
-		"tryAgain": "Opnieuw proberen"
+		"tryAgain": "Opnieuw proberen",
+		"openDownloadPage": "Downloadpagina openen"
 	}
 }

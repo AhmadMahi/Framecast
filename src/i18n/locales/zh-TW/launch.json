@@ -14,6 +14,13 @@
 		"systemAudio": "系統音訊",
 		"stopRecording": "停止錄製",
 		"startRecording": "開始錄製",
+		"pauseRecording": "暫停錄製",
+		"resumeRecording": "繼續錄製",
+		"camera": "相機",
+		"turnOnCamera": "開啟相機",
+		"turnOffCamera": "關閉相機",
+		"checkForUpdates": "檢查更新",
+		"openSettings": "開啟設定",
 		"on": "開",
 		"off": "關",
 		"recordingFolder": "錄影儲存路徑：{{path}}",
@@ -101,6 +108,7 @@
 		"notNow": "暫不",
 		"updateNow": "立即更新",
 		"restartToUpdate": "重新啟動以更新",
-		"tryAgain": "重試"
+		"tryAgain": "重試",
+		"openDownloadPage": "開啟下載頁面"
 	}
 }

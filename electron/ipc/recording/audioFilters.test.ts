@@ -4,6 +4,8 @@ import {
 	BROWSER_MIC_SIDECAR_FILTERS,
 	BROWSER_MIC_SIDECAR_NO_AGC_GAIN_FILTERS,
 	DEFAULT_MICROPHONE_ENHANCEMENT,
+	DEFAULT_MICROPHONE_NOISE_PROFILE,
+	getNoiseSuppressionFilters,
 	getBrowserMicrophoneProfileForEnhancement,
 	getBrowserMicSidecarFilters,
 	getMacNativeMicFilters,
@@ -11,6 +13,7 @@ import {
 	MAC_NATIVE_MIC_LIMITER_FILTERS,
 	MAC_NATIVE_MIC_NOISE_SUPPRESSION_FILTERS,
 	normalizeMicrophoneEnhancement,
+	normalizeMicrophoneNoiseProfile,
 	RECORDING_AUDIO_SIDECAR_DEBUG_ENV,
 	shouldKeepRecordingAudioSidecars,
 	WINDOWS_NATIVE_MIC_PRE_FILTERS,
@@ -92,7 +95,30 @@ describe("microphone enhancement settings", () => {
 			noiseSuppression: false,
 			echoCancellation: DEFAULT_MICROPHONE_ENHANCEMENT.echoCancellation,
 			autoGainControl: DEFAULT_MICROPHONE_ENHANCEMENT.autoGainControl,
+			noiseProfile: DEFAULT_MICROPHONE_ENHANCEMENT.noiseProfile,
 		});
+	});
+
+	it("defaults to the strongest measured profile and rejects unknown ones", () => {
+		expect(DEFAULT_MICROPHONE_NOISE_PROFILE).toBe("strong");
+		expect(normalizeMicrophoneNoiseProfile("LIGHT")).toBe("light");
+		expect(normalizeMicrophoneNoiseProfile("studio")).toBe("strong");
+		expect(normalizeMicrophoneEnhancement({ noiseProfile: "standard" }).noiseProfile).toBe(
+			"standard",
+		);
+	});
+
+	it("scales the denoiser with the profile and disables it for off", () => {
+		expect(getNoiseSuppressionFilters("off")).toEqual([]);
+		for (const [profile, strength] of [
+			["light", "nr=20"],
+			["standard", "nr=30"],
+			["strong", "nr=40"],
+		] as const) {
+			const filters = getNoiseSuppressionFilters(profile);
+			expect(filters.some((f) => f.startsWith("afftdn=") && f.includes(strength))).toBe(true);
+			expect(filters).toContain("highpass=f=85");
+		}
 	});
 
 	it("ignores non-boolean switch values", () => {
@@ -118,6 +144,7 @@ describe("macOS native mic filters", () => {
 			noiseSuppression: true,
 			echoCancellation: true,
 			autoGainControl: false,
+			noiseProfile: "strong",
 		});
 
 		expect(filters).toEqual([
@@ -133,6 +160,7 @@ describe("macOS native mic filters", () => {
 			noiseSuppression: true,
 			echoCancellation: true,
 			autoGainControl: true,
+			noiseProfile: "strong",
 		});
 
 		expect(filters).toEqual([

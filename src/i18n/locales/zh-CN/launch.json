@@ -14,6 +14,13 @@
 		"systemAudio": "系统音频",
 		"stopRecording": "停止录制",
 		"startRecording": "开始录制",
+		"pauseRecording": "暂停录制",
+		"resumeRecording": "继续录制",
+		"camera": "摄像头",
+		"turnOnCamera": "打开摄像头",
+		"turnOffCamera": "关闭摄像头",
+		"checkForUpdates": "检查更新",
+		"openSettings": "打开设置",
 		"on": "开",
 		"off": "关",
 		"recordingFolder": "录制文件夹：{{path}}",
@@ -101,6 +108,7 @@
 		"notNow": "暂不",
 		"updateNow": "立即更新",
 		"restartToUpdate": "重新启动以更新",
-		"tryAgain": "重试"
+		"tryAgain": "重试",
+		"openDownloadPage": "打开下载页面"
 	}
 }

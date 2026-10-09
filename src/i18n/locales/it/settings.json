@@ -256,6 +256,9 @@
 	"updates": {
 		"experimentalDescription": "Hai attivato gli aggiornamenti sperimentali, quindi puoi scegliere di provare l'ultimo aggiornamento di Recordly prima che sia disponibile per tutti.",
 		"title": "Aggiornamenti",
+		"check": "Controlla aggiornamenti",
+		"checkDescription": "Cerca una versione più recente nel canale di rilascio.",
+		"checkNow": "Controlla ora",
 		"experimental": "Aggiornamenti sperimentali",
 		"saveFailed": "Impossibile cambiare il canale di aggiornamento."
 	}

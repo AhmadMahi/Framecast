@@ -55,7 +55,7 @@ interface UpdateToastState {
 	totalBytes?: number;
 	remainingBytes?: number;
 	bytesPerSecond?: number;
-	primaryAction?: "install-and-restart" | "retry-check";
+	primaryAction?: "install-and-restart" | "retry-check" | "open-download-page";
 }
 
 interface UpdateStatusSummary {
@@ -257,7 +257,23 @@ interface Window {
 		}>;
 		hideMenuBarPanel: () => void;
 		resizeMenuBarPanel: (height: number) => void;
-		startRecordingFromMenuBar: () => Promise<{ success: boolean }>;
+		startRecordingFromMenuBar: () => Promise<{ success: boolean; cancelled?: boolean }>;
+		pauseRecordingFromMenuBar: () => Promise<{ success: boolean }>;
+		resumeRecordingFromMenuBar: () => Promise<{ success: boolean }>;
+		openSettingsFromMenuBar: () => Promise<{ success: boolean }>;
+		checkForAppUpdatesFromMenuBar: () => Promise<{ success: boolean }>;
+		openUpdateDownloadPage: () => Promise<void>;
+		pickCaptureSource: () => Promise<{
+			success: boolean;
+			cancelled?: boolean;
+			source?: ProcessedDesktopSource;
+			message?: string;
+		}>;
+		cancelCaptureSourcePick: () => Promise<{ success: boolean }>;
+		onRecordingPausedChanged: (callback: (state: { paused: boolean }) => void) => () => void;
+		onPauseRecordingFromTray: (callback: () => void) => () => void;
+		onResumeRecordingFromTray: (callback: () => void) => () => void;
+		onOpenDashboardSection: (callback: (section: string) => void) => () => void;
 		stopRecordingFromMenuBar: () => Promise<{ success: boolean }>;
 		openProjectsFromMenuBar: () => Promise<{ success: boolean }>;
 		getAssetBasePath: () => Promise<string | null>;
@@ -280,6 +296,7 @@ interface Window {
 				microphoneLabel?: string;
 			},
 		) => Promise<{
+			needsPick?: boolean;
 			success: boolean;
 			path?: string;
 			message?: string;

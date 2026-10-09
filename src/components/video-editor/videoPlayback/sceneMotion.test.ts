@@ -98,7 +98,6 @@ describe("shouldComposePreviewFrame", () => {
 	});
 });
 
-
 describe("preview seek completion", () => {
 	it("holds the composed frame until seeking finishes, even with a pending refresh", () => {
 		const pending = {

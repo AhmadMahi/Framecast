@@ -1,5 +1,5 @@
 import { useRawLibrary } from "./useRawLibrary";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "@/components/ui/toast";
 import type { ProjectLibraryEntry } from "../ProjectBrowserDialog";
 import type { DashboardProps } from "./types";
@@ -40,6 +40,15 @@ export function useDashboardModel({
 	const [period, setPeriod] = useState("all");
 	const [sort, setSort] = useState("recent");
 	const [section, changeSection] = useState("projects");
+
+	// "Open Settings" from the menu bar lands here: open the dashboard and jump
+	// straight to the requested section. Repeated sends are harmless.
+	useEffect(() => {
+		return window.electronAPI?.onOpenDashboardSection?.((next) => {
+			onOpenChange(true);
+			changeSection(next);
+		});
+	}, [onOpenChange]);
 	const [library, setLibrary] = useState("projects");
 	const raw = useRawLibrary(open && library === "raw");
 	const [rawPreview, setRawPreview] = useState<ProjectLibraryEntry | null>(null);

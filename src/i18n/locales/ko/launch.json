@@ -14,6 +14,13 @@
 		"systemAudio": "시스템 오디오",
 		"stopRecording": "녹화 중지",
 		"startRecording": "녹화 시작",
+		"pauseRecording": "녹화 일시정지",
+		"resumeRecording": "녹화 재개",
+		"camera": "카메라",
+		"turnOnCamera": "카메라 켜기",
+		"turnOffCamera": "카메라 끄기",
+		"checkForUpdates": "업데이트 확인",
+		"openSettings": "설정 열기",
 		"on": "켬",
 		"off": "끔",
 		"recordingFolder": "녹화 폴더: {{path}}",
@@ -101,6 +108,7 @@
 		"notNow": "나중에",
 		"updateNow": "지금 업데이트",
 		"restartToUpdate": "다시 시작하여 업데이트",
-		"tryAgain": "다시 시도"
+		"tryAgain": "다시 시도",
+		"openDownloadPage": "다운로드 페이지 열기"
 	}
 }

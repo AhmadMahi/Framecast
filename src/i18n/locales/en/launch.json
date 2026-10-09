@@ -14,6 +14,13 @@
 		"systemAudio": "System audio",
 		"stopRecording": "Stop recording",
 		"startRecording": "Start recording",
+		"pauseRecording": "Pause recording",
+		"resumeRecording": "Resume recording",
+		"camera": "Camera",
+		"turnOnCamera": "Turn on camera",
+		"turnOffCamera": "Turn off camera",
+		"checkForUpdates": "Check for updates",
+		"openSettings": "Open Settings",
 		"on": "On",
 		"off": "Off",
 		"recordingFolder": "Recordings Path: {{path}}",
@@ -101,6 +108,7 @@
 		"notNow": "Not now",
 		"updateNow": "Update now",
 		"restartToUpdate": "Restart to update",
-		"tryAgain": "Try again"
+		"tryAgain": "Try again",
+		"openDownloadPage": "Open download page"
 	}
 }

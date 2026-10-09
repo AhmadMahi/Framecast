@@ -51,7 +51,8 @@
 @layer base {
 	:root {
 		--app-font-sans:
-			"DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+			"DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+			sans-serif;
 		--brand-accent: var(--accent);
 		--brand-accent-rgb: 0, 111, 238;
 		--primary: var(--accent);
@@ -140,15 +141,15 @@
    Do not outline dialogs or other programmatically focused containers. */
 :root,
 .dark {
- --focus: var(--accent);
+	--focus: var(--accent);
 }
 :focus-visible:not([data-rac]):not([role="dialog"]):not([role="alertdialog"]):not([tabindex="-1"]) {
- outline: 2px solid var(--focus);
- outline-offset: 2px;
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
 }
 ::selection {
- background: var(--accent-soft);
- color: var(--foreground);
+	background: var(--accent-soft);
+	color: var(--foreground);
 }
 
 @container (max-width: 110px) {
@@ -189,26 +190,39 @@
 }
 
 .dashboard-surface .folder-row > button {
-  background: transparent;
+	background: transparent;
 }
 
 .inline-project-name {
- background: transparent;
- border: 0;
- border-radius: 0;
- box-shadow: none;
- outline: none;
- padding: 0;
- color: inherit;
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	outline: none;
+	padding: 0;
+	color: inherit;
 }
-.inline-project-name:focus { outline: none; box-shadow: none; }
-.inline-project-name:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.inline-project-name:focus {
+	outline: none;
+	box-shadow: none;
+}
+.inline-project-name:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
 
 .dashboard-shell {
- background-color: color-mix(in srgb, var(--background) 92%, var(--foreground) 8%);
+	background-color: color-mix(in srgb, var(--background) 92%, var(--foreground) 8%);
 }
 
-.dark .dashboard-shell { background-color: var(--background); }
-.dark .dashboard-shell > .card { background-color: color-mix(in srgb, var(--background) 92%, var(--foreground) 8%); }
+.dark .dashboard-shell {
+	background-color: var(--background);
+}
+.dark .dashboard-shell > .card {
+	background-color: color-mix(in srgb, var(--background) 92%, var(--foreground) 8%);
+}
 
-.dashboard-settings .custom-scrollbar { padding-inline: 0; scrollbar-gutter: auto !important; }
+.dashboard-settings .custom-scrollbar {
+	padding-inline: 0;
+	scrollbar-gutter: auto !important;
+}

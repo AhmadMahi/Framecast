@@ -16,7 +16,7 @@ export function readMicrophoneEnhancementSetting(): MicrophoneEnhancementSetting
 }
 
 export function writeMicrophoneEnhancementSetting(
-	patch: Partial<MicrophoneEnhancementSettings>,
+	patch: Partial<Record<keyof MicrophoneEnhancementSettings, unknown>>,
 ): MicrophoneEnhancementSettings {
 	const next = normalizeMicrophoneEnhancement(
 		{ ...readMicrophoneEnhancementSetting(), ...patch },

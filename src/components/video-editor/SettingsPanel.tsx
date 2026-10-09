@@ -2298,6 +2298,21 @@ export function SettingsPanel({
 						<section className="flex flex-col gap-4">
 							<SectionLabel>{tSettings("updates.title", "Updates")}</SectionLabel>
 							<SettingsRow
+								title={tSettings("updates.check", "Check for updates")}
+								description={tSettings(
+									"updates.checkDescription",
+									"Looks for a newer version on the release channel.",
+								)}
+							>
+								<Button
+									variant="secondary"
+									size="sm"
+									onClick={() => void window.electronAPI.checkForAppUpdates()}
+								>
+									{tSettings("updates.checkNow", "Check now")}
+								</Button>
+							</SettingsRow>
+							<SettingsRow
 								title={tSettings("updates.experimental", "Experimental updates")}
 								description={tSettings(
 									"updates.experimentalDescription",

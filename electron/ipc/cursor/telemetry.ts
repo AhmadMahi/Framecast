@@ -21,6 +21,7 @@ import {
 	setCursorCaptureInterval,
 	setCursorCapturePauseStartedAtMs,
 	setPendingCursorSamples,
+	pickerSelection,
 } from "../state";
 import type { CursorInteractionType, CursorTelemetryPoint, CursorVisualType } from "../types";
 import { getScreen, getTelemetryPathForVideo } from "../utils";
@@ -175,6 +176,16 @@ export function getNormalizedCursorPoint() {
 	const cursor = isLinuxCacheFresh
 		? { x: linuxCursorCache.x / primarySf, y: linuxCursorCache.y / primarySf }
 		: fallbackCursor;
+
+	// Picker captures are sized by the filter's contentRect in screen points,
+	// which on macOS is already the coordinate space the cursor reports in.
+	const pickerBounds = selectedSource?.id?.startsWith("picker:") ? pickerSelection : null;
+	if (pickerBounds && pickerBounds.width > 0 && pickerBounds.height > 0) {
+		return {
+			cx: clamp((cursor.x - pickerBounds.x) / pickerBounds.width, 0, 1),
+			cy: clamp((cursor.y - pickerBounds.y) / pickerBounds.height, 0, 1),
+		};
+	}
 
 	const windowBounds = selectedSource?.id?.startsWith("window:") ? selectedWindowBounds : null;
 	if (windowBounds) {

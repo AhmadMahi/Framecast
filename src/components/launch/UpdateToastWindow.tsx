@@ -21,7 +21,7 @@ export type UpdateToastPayload = {
 	transferredBytes?: number;
 	totalBytes?: number;
 	bytesPerSecond?: number;
-	primaryAction?: "install-and-restart" | "retry-check";
+	primaryAction?: "install-and-restart" | "retry-check" | "open-download-page";
 };
 
 function formatBytes(value: number | undefined) {
@@ -69,6 +69,9 @@ function getDetail(payload: UpdateToastPayload, t: Translate) {
 }
 
 function getPrimaryLabel(payload: UpdateToastPayload, t: Translate) {
+	if (payload.primaryAction === "open-download-page") {
+		return t("launch.updateToast.openDownloadPage", "Open download page");
+	}
 	if (payload.primaryAction === "retry-check") {
 		return t("launch.updateToast.tryAgain", "Try again");
 	}
@@ -141,6 +144,10 @@ export function UpdateToastWindow({
 			await window.electronAPI.checkForAppUpdates();
 			return;
 		}
+		if (payload.primaryAction === "open-download-page") {
+			await window.electronAPI.openUpdateDownloadPage();
+			return;
+		}
 		if (payload.phase === "ready") {
 			await window.electronAPI.installDownloadedUpdate();
 			return;
@@ -158,7 +165,11 @@ export function UpdateToastWindow({
 
 	return (
 		<div className={`${styles.window} launch-theme`}>
-			<Card className="w-full flex-row gap-3" aria-live="polite" aria-label="Recordly update">
+			<Card
+				className="w-full flex-row gap-3"
+				aria-live="polite"
+				aria-label="Framecast update"
+			>
 				<div
 					className={`${styles.icon} ${payload.phase === "error" ? styles.iconError : ""}`}
 				>

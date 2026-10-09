@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import ScreenCaptureKit
 import AVFoundation
@@ -20,6 +21,10 @@ struct CaptureConfig: Codable {
 	let microphoneLabel: String?
 	let microphoneOutputPath: String?
 	let excludedProcessIds: [Int32]?
+	/// Present Apple's content picker instead of capturing a configured target.
+	let pick: Bool?
+	/// Bundle identifiers hidden from the picker, normally the parent app itself.
+	let excludedBundleIds: [String]?
 }
 
 let targetCaptureFPS = 60
@@ -69,6 +74,9 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 	private var outputURL: URL?
 	private var microphoneOutputURL: URL?
 	private var trackedWindowId: UInt32?
+	/// Set by the content picker before `startCapture`; wins over any display or
+	/// window id in the config.
+	var pickedFilter: SCContentFilter?
 	private var windowValidationTask: Task<Void, Never>?
 	private var isFinalizing = false
 	private var interactiveStopParticipated = false
@@ -130,7 +138,22 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 			excludedProcessIds.contains($0.processID)
 		}
 
-		if let windowId = config.windowId {
+		if let picked = pickedFilter {
+			// Content chosen in Apple's picker: one window, several windows, an
+			// app, or a display. ScreenCaptureKit composites the selection into a
+			// single frame sized by contentRect, and desktop-independent window
+			// capture follows the window across Spaces, so no crop is needed.
+			trackedWindowId = nil
+			windowCropRect = nil
+			windowCropDisplayId = nil
+			filter = picked
+			let scaleFactor = max(1, Int(picked.pointPixelScale.rounded()))
+			let contentSize = picked.contentRect.size
+			outputWidth = max(2, Int(contentSize.width) * scaleFactor) & ~1
+			outputHeight = max(2, Int(contentSize.height) * scaleFactor) & ~1
+			streamConfig.width = outputWidth
+			streamConfig.height = outputHeight
+		} else if let windowId = config.windowId {
 			trackedWindowId = windowId
 			guard let window = availableContent.windows.first(where: { $0.windowID == windowId }) else {
 				throw NSError(domain: "RecordlyCapture", code: 3, userInfo: [NSLocalizedDescriptionKey: "Window not found"])
@@ -953,13 +976,157 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 	}
 }
 
+/// Relays Apple's content picker outcome back to the session.
+final class ContentPickerObserver: NSObject, SCContentSharingPickerObserver {
+	private let onPicked: (SCContentFilter) -> Void
+	private let onCancelled: () -> Void
+
+	init(onPicked: @escaping (SCContentFilter) -> Void, onCancelled: @escaping () -> Void) {
+		self.onPicked = onPicked
+		self.onCancelled = onCancelled
+	}
+
+	func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {
+		onCancelled()
+	}
+
+	func contentSharingPicker(_ picker: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for stream: SCStream?) {
+		onPicked(filter)
+	}
+
+	func contentSharingPickerStartDidFailWithError(_ error: Error) {
+		fputs("PICKER_FAILED: \(error.localizedDescription)\n", stderr)
+		fflush(stderr)
+		exit(1)
+	}
+}
+
+/// Picker mode: show Apple's content picker, hold the selection in the
+/// recorder, and record on a later `start <json>` line from stdin.
+final class ContentPickerSession {
+	private let recorder: ScreenCaptureRecorder
+	private let service: RecorderService
+	private var observer: ContentPickerObserver?
+
+	init(recorder: ScreenCaptureRecorder, service: RecorderService) {
+		self.recorder = recorder
+		self.service = service
+	}
+
+	func present(excludedBundleIds: [String]) {
+		let picker = SCContentSharingPicker.shared
+		var configuration = SCContentSharingPickerConfiguration()
+		configuration.allowedPickerModes = [.singleWindow, .multipleWindows, .singleDisplay, .singleApplication]
+		configuration.allowsChangingSelectedContent = false
+		configuration.excludedBundleIDs = excludedBundleIds
+		picker.defaultConfiguration = configuration
+
+		let observer = ContentPickerObserver(
+			onPicked: { [weak self] filter in self?.handlePicked(filter) },
+			onCancelled: {
+				print("PICKER_CANCELLED")
+				fflush(stdout)
+				exit(0)
+			}
+		)
+		self.observer = observer
+		picker.add(observer)
+		picker.isActive = true
+		picker.present()
+	}
+
+	private func handlePicked(_ filter: SCContentFilter) {
+		recorder.pickedFilter = filter
+		SCContentSharingPicker.shared.isActive = false
+
+		let style: String
+		switch filter.style {
+		case .window: style = "window"
+		case .display: style = "display"
+		case .application: style = "application"
+		case .none: style = "none"
+		@unknown default: style = "unknown"
+		}
+
+		var windowCount = 0
+		if #available(macOS 15.2, *) {
+			windowCount = filter.includedWindows.count
+		}
+
+		let rect = filter.contentRect
+		let summary: [String: Any] = [
+			"style": style,
+			"windowCount": windowCount,
+			"scale": Double(filter.pointPixelScale),
+			"x": Double(rect.minX),
+			"y": Double(rect.minY),
+			"width": Double(rect.width),
+			"height": Double(rect.height),
+		]
+		if let data = try? JSONSerialization.data(withJSONObject: summary, options: [.sortedKeys]),
+		   let json = String(data: data, encoding: .utf8) {
+			print("PICKER_SELECTED \(json)")
+		} else {
+			print("PICKER_SELECTED {\"style\":\"\(style)\"}")
+		}
+		fflush(stdout)
+	}
+
+	/// Reads commands until EOF or `stop`, then finalizes and exits.
+	func runCommandLoop() {
+		DispatchQueue.global(qos: .utility).async { [service] in
+			while let rawLine = readLine(strippingNewline: true) {
+				let line = rawLine.trimmingCharacters(in: .whitespaces)
+				let command = line.lowercased()
+				if command == "cancel" {
+					exit(0)
+				}
+				if command.hasPrefix("start ") {
+					service.start(configJSON: String(line.dropFirst("start ".count)))
+					continue
+				}
+				if command == "pause" {
+					service.pause()
+					continue
+				}
+				if command == "resume" {
+					service.resume()
+					continue
+				}
+				if command == "stop" {
+					break
+				}
+			}
+			service.stop()
+			exit(service.waitUntilFinished() ? 0 : 1)
+		}
+	}
+}
+
+/// Parks the process in an AppKit run loop for the system picker. Never returns.
+func runPickerMode(excludedBundleIds: [String]) -> Never {
+	let app = NSApplication.shared
+	app.setActivationPolicy(.accessory)
+	let recorder = ScreenCaptureRecorder()
+	let service = RecorderService(recorder: recorder)
+	let session = ContentPickerSession(recorder: recorder, service: service)
+	session.present(excludedBundleIds: excludedBundleIds)
+	session.runCommandLoop()
+	app.run()
+	exit(0)
+}
+
 final class RecorderService {
-	private let recorder = ScreenCaptureRecorder()
+	private let recorder: ScreenCaptureRecorder
 	private let queue = DispatchQueue(label: "recordly.screencapturekit.commands")
 	private let completionGroup = DispatchGroup()
 	private var succeeded = true
 	// Accessed only by serialized command operations.
 	private var captureStarted = false
+
+	init(recorder: ScreenCaptureRecorder = ScreenCaptureRecorder()) {
+		self.recorder = recorder
+	}
 
 	private func enqueue(_ operation: @escaping () async -> Void) {
 		queue.async {
@@ -1074,6 +1241,13 @@ if let configData = CommandLine.arguments[1].data(using: .utf8),
 		fflush(stderr)
 		exit(1)
 	}
+}
+
+let launchConfig = CommandLine.arguments[1].data(using: .utf8).flatMap {
+	try? JSONDecoder().decode(CaptureConfig.self, from: $0)
+}
+if launchConfig?.pick == true {
+	runPickerMode(excludedBundleIds: launchConfig?.excludedBundleIds ?? [])
 }
 
 let service = RecorderService()

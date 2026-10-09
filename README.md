@@ -9,6 +9,13 @@ Language: EN | [简中](README.zh-CN.md)
   <img src="https://img.shields.io/badge/open%20source-AGPL3.0-2563eb?style=for-the-badge" alt="AGPL 3.0 license" />
 </p>
 
+### What Framecast adds
+
+- **Menu bar panel** (macOS): start, pause and stop recording, switch microphone and camera, check for updates, and open Settings from a small translucent dropdown.
+- **Zoom-style picking** (macOS): choose any window, several windows at once, an app, or a display in Apple's system picker, including full-screen apps on their own Spaces.
+- **Noise cancellation**: selectable profiles applied to the microphone track, including on native macOS capture where the mic previously recorded raw.
+- **Primary-display fix**: windows on the main screen no longer disappear from the picker when something is maximized in front of them.
+
 ### Create polished demo videos in minutes
 Framecast is an **open-source screen recorder** and editor for **walkthroughs, demos, product videos**, and more. 
 **Accepting PRs.**

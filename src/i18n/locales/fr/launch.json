@@ -14,6 +14,13 @@
 		"systemAudio": "Audio système",
 		"stopRecording": "Arrêter l’enregistrement",
 		"startRecording": "Démarrer l’enregistrement",
+		"pauseRecording": "Mettre en pause",
+		"resumeRecording": "Reprendre l’enregistrement",
+		"camera": "Caméra",
+		"turnOnCamera": "Activer la caméra",
+		"turnOffCamera": "Désactiver la caméra",
+		"checkForUpdates": "Rechercher des mises à jour",
+		"openSettings": "Ouvrir les réglages",
 		"on": "Oui",
 		"off": "Non",
 		"recordingFolder": "Chemin des enregistrements : {{path}}",
@@ -101,6 +108,7 @@
 		"notNow": "Plus tard",
 		"updateNow": "Mettre à jour",
 		"restartToUpdate": "Redémarrer pour mettre à jour",
-		"tryAgain": "Réessayer"
+		"tryAgain": "Réessayer",
+		"openDownloadPage": "Ouvrir la page de téléchargement"
 	}
 }

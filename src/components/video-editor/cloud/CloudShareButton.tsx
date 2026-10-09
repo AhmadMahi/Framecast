@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 const DEFAULT_CLOUD_ENDPOINT = "http://localhost:8787/api/upload";
 
 type Props = {
- projectPath?: string | null;
+	projectPath?: string | null;
 	filePath?: string;
 	projectTitle: string;
 	prepareFile?: () => Promise<string | undefined>;
@@ -130,7 +130,13 @@ export function CloudShareButton({
 			}
 			setProgress(100);
 			setShareUrl(result.shareUrl);
- if (projectPath) { try { saveProjectShareLink(projectPath, result.shareUrl); } catch { toast.error("Share created, but its link could not be saved locally"); } }
+			if (projectPath) {
+				try {
+					saveProjectShareLink(projectPath, result.shareUrl);
+				} catch {
+					toast.error("Share created, but its link could not be saved locally");
+				}
+			}
 			toast.success(t("editor.cloud.linkCreated"));
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : String(cause));

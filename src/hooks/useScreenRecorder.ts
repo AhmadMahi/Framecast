@@ -557,7 +557,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			await window.electronAPI.openScreenRecordingPreferences();
 			alert(
 				options.startup
-					? "Recordly needs Screen Recording permission before you start. System Settings has been opened. After enabling it, quit and reopen Recordly."
+					? "Framecast needs Screen Recording permission before you start. System Settings has been opened. After enabling it, quit and reopen Framecast."
 					: "Screen Recording permission is still missing. System Settings has been opened again. Enable it, then quit and reopen Recordly before recording.",
 			);
 			return false;
@@ -580,7 +580,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		await window.electronAPI.openAccessibilityPreferences();
 		alert(
 			options.startup
-				? "Recordly also needs Accessibility permission for cursor tracking. System Settings has been opened. After enabling it, quit and reopen Recordly."
+				? "Framecast also needs Accessibility permission for cursor tracking. System Settings has been opened. After enabling it, quit and reopen Framecast."
 				: "Accessibility permission is still missing. System Settings has been opened again. Enable it, then quit and reopen Recordly before recording.",
 		);
 
@@ -1128,6 +1128,16 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const prepareRecordingStart = useCallback(async () => {
 		const platform = await window.electronAPI.getPlatform();
 		hideEditorOverlayCursorByDefault.current = false;
+		if (platform === "darwin" && typeof window.electronAPI.pickCaptureSource === "function") {
+			const current = await window.electronAPI.getSelectedSource();
+			if (!current?.id?.startsWith("picker:")) {
+				const pick = await window.electronAPI.pickCaptureSource();
+				if (!pick.success || pick.cancelled || !pick.source) {
+					return null;
+				}
+			}
+		}
+
 		const existingSource = await window.electronAPI.getSelectedSource();
 		const selectedSource =
 			existingSource ?? (platform === "linux" ? LINUX_PORTAL_SOURCE : null);
@@ -1156,7 +1166,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		const useNativeMacScreenCapture =
 			platform === "darwin" &&
 			(selectedSource.id?.startsWith("screen:") ||
-				selectedSource.id?.startsWith("window:")) &&
+				selectedSource.id?.startsWith("window:") ||
+				selectedSource.id?.startsWith("picker:")) &&
 			typeof window.electronAPI.startNativeScreenRecording === "function";
 
 		let useNativeWindowsCapture = false;
@@ -1264,6 +1275,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, []);
 
 	const startRecordingFromTray = useRef<() => void>(() => undefined);
+	const pauseRecordingFromTray = useRef<() => void>(() => undefined);
+	const resumeRecordingFromTray = useRef<() => void>(() => undefined);
 
 	const stopRecording = useRef(() => {
 		recordingStartGeneration.current += 1;
@@ -1582,6 +1595,12 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		const removeStartListener = window.electronAPI?.onStartRecordingFromTray?.(() => {
 			startRecordingFromTray.current();
 		});
+		const removePauseListener = window.electronAPI?.onPauseRecordingFromTray?.(() => {
+			pauseRecordingFromTray.current();
+		});
+		const removeResumeListener = window.electronAPI?.onResumeRecordingFromTray?.(() => {
+			resumeRecordingFromTray.current();
+		});
 
 		const removeRecordingStateListener = window.electronAPI?.onRecordingStateChanged?.(
 			(state) => {
@@ -1630,6 +1649,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			recordingStartGeneration.current += 1;
 			cleanup?.();
 			removeStartListener?.();
+			removePauseListener?.();
+			removeResumeListener?.();
 			removeRecordingStateListener?.();
 			removeRecordingInterruptedListener?.();
 
@@ -1720,7 +1741,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			let nativeWindowsCaptureStartFailed = false;
 
 			if (useNativeCapture) {
-				const nativeResult = await window.electronAPI.startNativeScreenRecording(
+				let nativeResult = await window.electronAPI.startNativeScreenRecording(
 					selectedSource,
 					{
 						capturesSystemAudio: systemAudioEnabled,
@@ -1729,6 +1750,23 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						microphoneLabel: micLabel,
 					},
 				);
+				if (!nativeResult.success && nativeResult.needsPick && !startWasCancelled()) {
+					const pick = await window.electronAPI.pickCaptureSource();
+					if (!pick.success || pick.cancelled || !pick.source) {
+						cleanupCapturedMedia();
+						await stopWebcamRecorder();
+						return;
+					}
+					nativeResult = await window.electronAPI.startNativeScreenRecording(
+						pick.source,
+						{
+							capturesSystemAudio: systemAudioEnabled,
+							capturesMicrophone: microphoneEnabled,
+							microphoneDeviceId,
+							microphoneLabel: micLabel,
+						},
+					);
+				}
 				if (nativeResult.success && startWasCancelled()) {
 					nativeScreenRecording.current = true;
 					nativeWindowsRecording.current = useNativeWindowsCapture;
@@ -2452,6 +2490,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		startRecording();
 	};
+	pauseRecordingFromTray.current = pauseRecording;
+	resumeRecordingFromTray.current = resumeRecording;
 
 	return {
 		recording,

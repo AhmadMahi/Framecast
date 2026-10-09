@@ -256,6 +256,9 @@
 	"updates": {
 		"experimentalDescription": "Vous avez activé les mises à jour expérimentales, vous pouvez donc tester la dernière mise à jour de Recordly avant sa disponibilité générale.",
 		"title": "Mises à jour",
+		"check": "Rechercher des mises à jour",
+		"checkDescription": "Recherche une version plus récente sur le canal de publication.",
+		"checkNow": "Vérifier",
 		"experimental": "Mises à jour expérimentales",
 		"saveFailed": "Impossible de changer le canal de mise à jour."
 	}

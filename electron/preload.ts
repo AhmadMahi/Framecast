@@ -228,6 +228,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		noiseSuppression?: boolean;
 		echoCancellation?: boolean;
 		autoGainControl?: boolean;
+		noiseProfile?: "off" | "light" | "standard" | "strong";
 	}) => {
 		return ipcRenderer.invoke("set-microphone-enhancement", patch);
 	},
@@ -245,6 +246,47 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	startRecordingFromMenuBar: () => {
 		return ipcRenderer.invoke("menu-bar-panel:start-recording");
+	},
+	pauseRecordingFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:pause-recording");
+	},
+	resumeRecordingFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:resume-recording");
+	},
+	openSettingsFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:open-settings");
+	},
+	checkForAppUpdatesFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:check-updates");
+	},
+	openUpdateDownloadPage: () => {
+		return ipcRenderer.invoke("open-update-download-page");
+	},
+	pickCaptureSource: () => {
+		return ipcRenderer.invoke("pick-native-capture-source");
+	},
+	cancelCaptureSourcePick: () => {
+		return ipcRenderer.invoke("cancel-native-capture-pick");
+	},
+	onRecordingPausedChanged: (callback: (state: { paused: boolean }) => void) => {
+		const listener = (_event: unknown, state: { paused: boolean }) => callback(state);
+		ipcRenderer.on("recording-paused-changed", listener);
+		return () => ipcRenderer.removeListener("recording-paused-changed", listener);
+	},
+	onPauseRecordingFromTray: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("pause-recording-from-tray", listener);
+		return () => ipcRenderer.removeListener("pause-recording-from-tray", listener);
+	},
+	onResumeRecordingFromTray: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("resume-recording-from-tray", listener);
+		return () => ipcRenderer.removeListener("resume-recording-from-tray", listener);
+	},
+	onOpenDashboardSection: (callback: (section: string) => void) => {
+		const listener = (_event: unknown, section: string) => callback(section);
+		ipcRenderer.on("open-dashboard-section", listener);
+		return () => ipcRenderer.removeListener("open-dashboard-section", listener);
 	},
 	stopRecordingFromMenuBar: () => {
 		return ipcRenderer.invoke("menu-bar-panel:stop-recording");

@@ -72,6 +72,7 @@ import {
 	waitForNativeCaptureStop,
 } from "../recording/mac";
 import { resolveRecordedVideoStoragePath } from "../recording/storagePath";
+import { readMicrophoneEnhancementSetting } from "../settings/microphoneEnhancement";
 import {
 	attachWindowsCaptureLifecycle,
 	isNativeWindowsCaptureAvailable,
@@ -99,6 +100,7 @@ import {
 	nativeCaptureSystemAudioPath,
 	nativeCaptureTargetPath,
 	nativeScreenRecordingActive,
+	pendingPickerProcess,
 	selectedSource,
 	setActiveCursorSamples,
 	setCachedSystemCursorAssets,
@@ -120,6 +122,9 @@ import {
 	setNativeCaptureTargetPath,
 	setNativeScreenRecordingActive,
 	setPendingCursorSamples,
+	setPendingPickerProcess,
+	setPickerSelection,
+	setSelectedSource,
 	setWindowsCaptureOutputBuffer,
 	setWindowsCapturePaused,
 	setWindowsCaptureProcess,
@@ -140,6 +145,7 @@ import {
 	windowsPendingVideoPath,
 	windowsSystemAudioPath,
 } from "../state";
+import type { PickerSelection } from "../state";
 import type { CursorTelemetryPoint, NativeMacRecordingOptions, SelectedSource } from "../types";
 import {
 	getMacPrivacySettingsUrl,
@@ -393,6 +399,209 @@ async function resolveExistingPath(...candidates: Array<string | null | undefine
 	}
 
 	return null;
+}
+
+const PICKER_SELECTION_TIMEOUT_MS = 10 * 60 * 1000;
+
+function broadcastSelectedSource() {
+	for (const window of BrowserWindow.getAllWindows()) {
+		if (!window.isDestroyed()) {
+			window.webContents.send("selected-source-changed", selectedSource);
+		}
+	}
+}
+
+function describePickerSelection(selection: PickerSelection) {
+	if (selection.style === "display") {
+		return "Screen";
+	}
+	if (selection.style === "application") {
+		return "App windows";
+	}
+	if (selection.windowCount > 1) {
+		return `${selection.windowCount} windows`;
+	}
+	return "Window";
+}
+
+/** True when a helper is parked with a selection the next start can use. */
+export function hasParkedPickerSelection() {
+	return Boolean(
+		selectedSource?.id?.startsWith("picker:") &&
+			pendingPickerProcess &&
+			pendingPickerProcess.exitCode === null,
+	);
+}
+
+export function cancelPendingPick() {
+	const parked = pendingPickerProcess;
+	setPendingPickerProcess(null);
+	if (!parked || parked.exitCode !== null) {
+		return;
+	}
+	try {
+		parked.stdin.write("cancel\n");
+	} catch {
+		// Falls through to kill below.
+	}
+	setTimeout(() => {
+		try {
+			if (parked.exitCode === null) parked.kill();
+		} catch {
+			// Nothing more to do if it is already gone.
+		}
+	}, 500);
+}
+
+function waitForPickerOutcome(proc: ChildProcessWithoutNullStreams) {
+	return new Promise<{ selection?: PickerSelection; cancelled?: boolean; error?: string }>(
+		(resolve) => {
+			let stdoutBuffer = "";
+			let stderrBuffer = "";
+			const timer = setTimeout(() => {
+				finish({ cancelled: true });
+				cancelPendingPick();
+			}, PICKER_SELECTION_TIMEOUT_MS);
+
+			const finish = (outcome: {
+				selection?: PickerSelection;
+				cancelled?: boolean;
+				error?: string;
+			}) => {
+				clearTimeout(timer);
+				proc.stdout.off("data", onStdout);
+				proc.stderr.off("data", onStderr);
+				proc.off("exit", onExit);
+				proc.off("error", onError);
+				resolve(outcome);
+			};
+
+			const onStdout = (chunk: Buffer) => {
+				stdoutBuffer += chunk.toString();
+				const selected = stdoutBuffer.match(/PICKER_SELECTED (\{.*\})/);
+				if (selected) {
+					try {
+						const raw = JSON.parse(selected[1]) as Partial<PickerSelection>;
+						finish({
+							selection: {
+								style: (raw.style as PickerSelection["style"]) ?? "unknown",
+								windowCount: Number(raw.windowCount ?? 0),
+								scale: Number(raw.scale ?? 1),
+								x: Number(raw.x ?? 0),
+								y: Number(raw.y ?? 0),
+								width: Number(raw.width ?? 0),
+								height: Number(raw.height ?? 0),
+							},
+						});
+					} catch (error) {
+						finish({ error: `Unreadable picker selection: ${String(error)}` });
+					}
+					return;
+				}
+				if (stdoutBuffer.includes("PICKER_CANCELLED")) {
+					finish({ cancelled: true });
+				}
+			};
+			const onStderr = (chunk: Buffer) => {
+				stderrBuffer += chunk.toString();
+				if (stderrBuffer.includes("PICKER_FAILED")) {
+					finish({ error: stderrBuffer.trim() });
+				}
+			};
+			const onExit = () =>
+				finish({ cancelled: true, error: stderrBuffer.trim() || undefined });
+			const onError = (error: Error) => finish({ error: String(error) });
+
+			proc.stdout.on("data", onStdout);
+			proc.stderr.on("data", onStderr);
+			proc.once("exit", onExit);
+			proc.once("error", onError);
+		},
+	);
+}
+
+/**
+ * Shows Apple's content picker and parks the helper with the user's selection
+ * until a recording starts. Works like Zoom's share picker: windows across
+ * Spaces, full-screen apps, several windows at once, or a whole display.
+ */
+export async function pickNativeCaptureSource(): Promise<{
+	success: boolean;
+	cancelled?: boolean;
+	source?: SelectedSource;
+	message?: string;
+}> {
+	if (process.platform !== "darwin") {
+		return { success: false, message: "The system picker is only available on macOS." };
+	}
+	if (nativeScreenRecordingActive) {
+		return {
+			success: false,
+			message: "Stop the current recording before choosing a new source.",
+		};
+	}
+
+	cancelPendingPick();
+
+	try {
+		// Warm up screen-recording consent for this process tree before the helper
+		// asks ScreenCaptureKit for the picker.
+		await desktopCapturer
+			.getSources({ types: ["screen"], thumbnailSize: { width: 1, height: 1 } })
+			.catch(() => []);
+
+		const helperPath = await ensureNativeCaptureHelperBinary();
+		const recordingsDir = await getRecordingsDir();
+		const proc = spawn(
+			helperPath,
+			[
+				JSON.stringify({
+					pick: true,
+					excludedBundleIds: [
+						app.isPackaged ? "dev.framecast.app" : "com.github.Electron",
+					],
+				}),
+			],
+			{ cwd: recordingsDir, stdio: ["pipe", "pipe", "pipe"] },
+		);
+		setPendingPickerProcess(proc);
+		proc.once("exit", () => {
+			if (pendingPickerProcess === proc) {
+				setPendingPickerProcess(null);
+			}
+		});
+
+		const outcome = await waitForPickerOutcome(proc);
+		if (!outcome.selection) {
+			if (pendingPickerProcess === proc) {
+				setPendingPickerProcess(null);
+			}
+			if (outcome.error && !outcome.cancelled) {
+				return { success: false, message: outcome.error };
+			}
+			return { success: true, cancelled: true };
+		}
+
+		const selection = outcome.selection;
+		const display = getScreen().getDisplayNearestPoint({
+			x: Math.round(selection.x + selection.width / 2),
+			y: Math.round(selection.y + selection.height / 2),
+		});
+		const source: SelectedSource = {
+			id: `picker:${Date.now()}`,
+			name: describePickerSelection(selection),
+			display_id: String(display.id),
+			sourceType: selection.style === "display" ? "screen" : "window",
+			pickerSelection: selection,
+		};
+		setPickerSelection(selection);
+		setSelectedSource(source);
+		broadcastSelectedSource();
+		return { success: true, source };
+	} catch (error) {
+		cancelPendingPick();
+		return { success: false, message: String(error) };
+	}
 }
 
 export function registerRecordingHandlers(
@@ -677,6 +886,15 @@ export function registerRecordingHandlers(
 				return { success: false, message: "A native screen recording is already active." };
 			}
 
+			// A picker source records through the helper that showed the picker,
+			// because the chosen SCContentFilter lives in that process.
+			const usesPickerSelection = Boolean(source?.id?.startsWith("picker:"));
+			const parkedPicker = usesPickerSelection ? pendingPickerProcess : null;
+			if (usesPickerSelection && (!parkedPicker || parkedPicker.exitCode !== null)) {
+				setPendingPickerProcess(null);
+				return { success: false, needsPick: true, message: "Choose what to record first." };
+			}
+
 			let captProc: ChildProcessWithoutNullStreams | null = null;
 			try {
 				const recordingsDir = await getRecordingsDir();
@@ -763,7 +981,13 @@ export function registerRecordingHandlers(
 				const windowId = parseWindowId(source?.id);
 				const screenId = Number(source?.display_id);
 
-				if (Number.isFinite(windowId) && windowId && source?.id?.startsWith("window:")) {
+				if (usesPickerSelection) {
+					// The helper already holds the picked filter; no target needed.
+				} else if (
+					Number.isFinite(windowId) &&
+					windowId &&
+					source?.id?.startsWith("window:")
+				) {
 					config.windowId = windowId;
 					if (visibleWindowBounds) {
 						config.windowX = visibleWindowBounds.x;
@@ -783,10 +1007,15 @@ export function registerRecordingHandlers(
 				setNativeCaptureMicrophonePath(microphoneOutputPath);
 				setNativeCaptureStopRequested(false);
 				setNativeCapturePaused(false);
-				captProc = spawn(helperPath, [JSON.stringify(config)], {
-					cwd: recordingsDir,
-					stdio: ["pipe", "pipe", "pipe"],
-				});
+				if (parkedPicker) {
+					captProc = parkedPicker;
+					setPendingPickerProcess(null);
+				} else {
+					captProc = spawn(helperPath, [JSON.stringify(config)], {
+						cwd: recordingsDir,
+						stdio: ["pipe", "pipe", "pipe"],
+					});
+				}
 				setNativeCaptureProcess(captProc);
 				attachNativeCaptureLifecycle(captProc);
 
@@ -797,6 +1026,9 @@ export function registerRecordingHandlers(
 					setNativeCaptureOutputBuffer(nativeCaptureOutputBuffer + chunk.toString());
 				});
 
+				if (parkedPicker) {
+					captProc.stdin.write(`start ${JSON.stringify(config)}\n`);
+				}
 				await waitForNativeCaptureStart(captProc);
 				setNativeScreenRecordingActive(true);
 
@@ -840,8 +1072,8 @@ export function registerRecordingHandlers(
 						type: "warning",
 						title: "Screen Recording Permission Required",
 						message:
-							"Recordly needs screen recording permission to capture your screen.",
-						detail: "Please open System Settings > Privacy & Security > Screen Recording, make sure Recordly is toggled ON, then try recording again.",
+							"Framecast needs screen recording permission to capture your screen.",
+						detail: "Please open System Settings > Privacy & Security > Screen Recording, make sure Framecast is toggled ON, then try recording again.",
 						buttons: ["Open System Settings", "Cancel"],
 						defaultId: 0,
 						cancelId: 1,
@@ -873,8 +1105,8 @@ export function registerRecordingHandlers(
 					const { response } = await dialog.showMessageBox({
 						type: "warning",
 						title: "Microphone Permission Required",
-						message: "Recordly needs microphone permission to record audio.",
-						detail: "Please open System Settings > Privacy & Security > Microphone, make sure Recordly is toggled ON, then try recording again.",
+						message: "Framecast needs microphone permission to record audio.",
+						detail: "Please open System Settings > Privacy & Security > Microphone, make sure Framecast is toggled ON, then try recording again.",
 						buttons: ["Open System Settings", "Cancel"],
 						defaultId: 0,
 						cancelId: 1,
@@ -1686,7 +1918,10 @@ export function registerRecordingHandlers(
 						"48000",
 						"-af",
 						[
-							...getBrowserMicSidecarFilters(options?.browserMicrophoneProfile),
+							...getBrowserMicSidecarFilters(
+								options?.browserMicrophoneProfile,
+								readMicrophoneEnhancementSetting().noiseProfile,
+							),
 							"aresample=async=1:first_pts=0",
 						].join(","),
 						"-c:a",
@@ -1903,14 +2138,31 @@ export function registerRecordingHandlers(
 		}
 	});
 
+	const broadcastPausedState = (paused: boolean) => {
+		for (const window of BrowserWindow.getAllWindows()) {
+			if (!window.isDestroyed()) {
+				window.webContents.send("recording-paused-changed", { paused });
+			}
+		}
+	};
+
 	ipcMain.handle("pause-cursor-capture", (_, pausedAtMs?: unknown) => {
 		pauseCursorCaptureAtBoundary(normalizeRendererTimestampMs(pausedAtMs));
+		broadcastPausedState(true);
 		return { success: true };
 	});
 
 	ipcMain.handle("resume-cursor-capture", (_, resumedAtMs?: unknown) => {
 		resumeCursorCapture(normalizeRendererTimestampMs(resumedAtMs));
 		sampleCursorPoint();
+		broadcastPausedState(false);
+		return { success: true };
+	});
+
+	ipcMain.handle("pick-native-capture-source", () => pickNativeCaptureSource());
+
+	ipcMain.handle("cancel-native-capture-pick", () => {
+		cancelPendingPick();
 		return { success: true };
 	});
 

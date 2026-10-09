@@ -1,11 +1,54 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { MessageBoxOptions, MessageBoxReturnValue } from "electron";
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import { USER_DATA_PATH } from "./appPaths";
 import { readAppSetting, writeAppSetting } from "./appSettingsStore";
 import { EXPERIMENTAL_UPDATE_DESCRIPTION, getUpdateChannelConfiguration } from "./updateChannel";
+
+const PRODUCT_NAME = "Framecast";
+export const UPDATE_DOWNLOAD_PAGE_URL = "https://github.com/AhmadMahi/Framecast/releases/latest";
+const UNSIGNED_MAC_UPDATE_DETAIL =
+	"This build is not code-signed, so macOS cannot swap it in place. Download the new version from the release page and drag it to Applications.";
+
+let macSigningState: "signed" | "unsigned" | null = null;
+
+/**
+ * Squirrel.Mac refuses to apply an update unless the running app carries a
+ * Developer ID signature, so unsigned macOS builds are steered to the release
+ * page instead of a download that fails at install.
+ */
+export function canInstallUpdatesInPlace(): boolean {
+	if (process.platform !== "darwin" || !app.isPackaged) {
+		return true;
+	}
+
+	if (macSigningState === null) {
+		try {
+			const appBundlePath = path.resolve(path.dirname(process.execPath), "..", "..");
+			const result = spawnSync("/usr/bin/codesign", ["-dv", "--verbose=2", appBundlePath], {
+				encoding: "utf8",
+				timeout: 5000,
+			});
+			const report = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+			macSigningState = /Authority=(Developer ID Application|Apple Distribution)/.test(report)
+				? "signed"
+				: "unsigned";
+		} catch {
+			macSigningState = "unsigned";
+		}
+		writeUpdaterLog(`macOS signing state: ${macSigningState}`);
+	}
+
+	return macSigningState === "signed";
+}
+
+export async function openUpdateDownloadPage() {
+	writeUpdaterLog(`Opening update download page: ${UPDATE_DOWNLOAD_PAGE_URL}`);
+	await shell.openExternal(UPDATE_DOWNLOAD_PAGE_URL);
+}
 
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const INITIAL_UPDATE_CHECK_DELAY_MS = 15 * 1000;
@@ -53,7 +96,7 @@ export interface UpdateToastPayload {
 	totalBytes?: number;
 	remainingBytes?: number;
 	bytesPerSecond?: number;
-	primaryAction?: "install-and-restart" | "retry-check";
+	primaryAction?: "install-and-restart" | "retry-check" | "open-download-page";
 }
 
 interface DownloadProgressSnapshot {
@@ -217,6 +260,17 @@ function createAvailableUpdateToastPayload(
 	version: string,
 	isExperimental = getExperimentalUpdatesEnabled(),
 ): UpdateToastPayload {
+	if (!canInstallUpdatesInPlace()) {
+		return {
+			version,
+			phase: "available",
+			detail: UNSIGNED_MAC_UPDATE_DETAIL,
+			delayMs: UPDATE_REMINDER_DELAY_MS,
+			isExperimental,
+			primaryAction: "open-download-page",
+		};
+	}
+
 	return {
 		version,
 		phase: "available",
@@ -455,6 +509,11 @@ export async function downloadAvailableUpdate(
 		return { success: false, message: "No update is ready to download." };
 	}
 
+	if (!canInstallUpdatesInPlace()) {
+		await openUpdateDownloadPage();
+		return { success: false, message: UNSIGNED_MAC_UPDATE_DETAIL };
+	}
+
 	if (pendingDownloadedVersion === availableVersion) {
 		return { success: false, message: "This update has already been downloaded." };
 	}
@@ -586,10 +645,29 @@ async function showAvailableUpdateDialog(
 ) {
 	const isPreview = Boolean(options?.isPreview);
 	const isExperimental = options?.isExperimental ?? getExperimentalUpdatesEnabled();
+	if (!isPreview && !canInstallUpdatesInPlace()) {
+		const fallback = await showMessageBox(getMainWindow, {
+			type: "info",
+			title: "Update Available",
+			message: `${PRODUCT_NAME} ${version} is available.`,
+			detail: UNSIGNED_MAC_UPDATE_DETAIL,
+			buttons: ["Open Download Page", "Later"],
+			defaultId: 0,
+			cancelId: 1,
+			noLink: true,
+		});
+		if (fallback.response === 0) {
+			await openUpdateDownloadPage();
+			return;
+		}
+		deferUpdateReminder(getMainWindow, sendToRenderer, UPDATE_REMINDER_DELAY_MS);
+		return;
+	}
+
 	const result = await showMessageBox(getMainWindow, {
 		type: "info",
 		title: isExperimental ? "Experimental Update Available" : "Update Available",
-		message: `Recordly ${version} is available${isExperimental ? " on the experimental channel" : ""}.`,
+		message: `${PRODUCT_NAME} ${version} is available${isExperimental ? " on the experimental channel" : ""}.`,
 		detail: isPreview
 			? `${isExperimental ? EXPERIMENTAL_UPDATE_DESCRIPTION : "This is a development preview of the standard update flow."} No real update will be installed.`
 			: isExperimental
@@ -633,8 +711,8 @@ async function showDownloadedUpdateDialog(
 		type: "info",
 		title: "Update Ready",
 		message: isPreview
-			? `Recordly ${version} is ready to install.`
-			: `Recordly ${version} has been downloaded.`,
+			? `${PRODUCT_NAME} ${version} is ready to install.`
+			: `${PRODUCT_NAME} ${version} has been downloaded.`,
 		detail: isPreview
 			? "Development preview of the native update prompt. No real update will be installed."
 			: "Install and restart now, or remind me later.",
@@ -686,7 +764,7 @@ async function showUpdateErrorDialog(
 	await showMessageBox(getMainWindow, {
 		type: "error",
 		title: "Update Failed",
-		message: `Recordly ${version} could not be downloaded.`,
+		message: `${PRODUCT_NAME} ${version} could not be downloaded.`,
 		detail: String(error),
 		buttons: ["OK"],
 		defaultId: 0,
@@ -782,7 +860,7 @@ export function setupAutoUpdates(
 		setUpdateStatusSummary({
 			status: "available",
 			availableVersion: info.version,
-			detail: `Recordly ${info.version} is available.`,
+			detail: `${PRODUCT_NAME} ${info.version} is available.`,
 		});
 		if (skippedVersion === info.version) {
 			manualCheckRequested = false;
@@ -810,7 +888,7 @@ export function setupAutoUpdates(
 		setUpdateStatusSummary({
 			status: "up-to-date",
 			availableVersion: null,
-			detail: `Recordly ${app.getVersion()} is up to date.`,
+			detail: `${PRODUCT_NAME} ${app.getVersion()} is up to date.`,
 		});
 		clearVisibleUpdateToast(sendToRenderer);
 		manualCheckRequested = false;
@@ -884,7 +962,7 @@ export function setupAutoUpdates(
 		setUpdateStatusSummary({
 			status: "ready",
 			availableVersion: info.version,
-			detail: `Recordly ${info.version} is ready to install.`,
+			detail: `${PRODUCT_NAME} ${info.version} is ready to install.`,
 		});
 		clearDeferredReminderTimer();
 

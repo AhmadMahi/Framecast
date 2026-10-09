@@ -189,14 +189,17 @@ export function registerSettingsHandlers() {
 		}
 	});
 
-	ipcMain.handle("set-microphone-enhancement", (_, patch: Partial<Record<string, boolean>>) => {
-		try {
-			return { success: true, settings: writeMicrophoneEnhancementSetting(patch) };
-		} catch (error) {
-			console.error("Failed to save microphone enhancement settings:", error);
-			return { success: false, settings: readMicrophoneEnhancementSetting() };
-		}
-	});
+	ipcMain.handle(
+		"set-microphone-enhancement",
+		(_, patch: Partial<Record<string, boolean | string>>) => {
+			try {
+				return { success: true, settings: writeMicrophoneEnhancementSetting(patch) };
+			} catch (error) {
+				console.error("Failed to save microphone enhancement settings:", error);
+				return { success: false, settings: readMicrophoneEnhancementSetting() };
+			}
+		},
+	);
 
 	ipcMain.handle("set-recording-preferences", async (_, prefs: RecordingPreferencesPatch) => {
 		try {

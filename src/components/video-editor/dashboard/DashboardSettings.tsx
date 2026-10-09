@@ -5,6 +5,22 @@ import { Switch } from "@/components/ui/switch";
 import { supportsHudCaptureProtection } from "@/lib/hudCaptureProtection";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+
+type NoiseProfile = "off" | "light" | "standard" | "strong";
+
+const NOISE_PROFILES: Array<{ value: NoiseProfile; label: string; detail: string }> = [
+	{ value: "strong", label: "Strong (recommended)", detail: "Hiss -16 dB, fan -8 dB" },
+	{ value: "standard", label: "Standard", detail: "Hiss -9 dB, fan -5 dB" },
+	{ value: "light", label: "Light", detail: "Hiss -5 dB, fan -4 dB" },
+	{ value: "off", label: "Off", detail: "Microphone recorded as captured" },
+];
 export const DashboardSettingsContext = createContext<ReactNode>(null);
 export function DashboardSettings({ onImportFile }: { onImportFile: () => Promise<void> }) {
 	const settingsContent = useContext(DashboardSettingsContext);
@@ -14,6 +30,8 @@ export function DashboardSettings({ onImportFile }: { onImportFile: () => Promis
 	const [captureSupported, setCaptureSupported] = useState(false);
 	const [menuBarSupported, setMenuBarSupported] = useState(false);
 	const [menuBarEnabled, setMenuBarEnabled] = useState(false);
+	const [noiseProfile, setNoiseProfile] = useState<NoiseProfile>("strong");
+	const [noiseSuppression, setNoiseSuppression] = useState(true);
 	const [busy, setBusy] = useState(false);
 	const run = async (action: () => Promise<void>) => {
 		setBusy(true);
@@ -32,8 +50,13 @@ export function DashboardSettings({ onImportFile }: { onImportFile: () => Promis
 			window.electronAPI.getHudOverlayCaptureProtection(),
 			window.electronAPI.getPlatform(),
 			window.electronAPI.getMenuBarIcon(),
+			window.electronAPI.getMicrophoneEnhancement(),
 		])
-			.then(([directory, protection, platform, menuBar]) => {
+			.then(([directory, protection, platform, menuBar, enhancement]) => {
+				if (enhancement?.settings) {
+					setNoiseProfile(enhancement.settings.noiseProfile);
+					setNoiseSuppression(enhancement.settings.noiseSuppression);
+				}
 				if (!active) return;
 				if (directory.success) setRecordings(directory.path);
 				if (protection.success) setHideHud(protection.enabled);
@@ -91,6 +114,44 @@ export function DashboardSettings({ onImportFile }: { onImportFile: () => Promis
 						>
 							Change folder
 						</Button>
+					</SettingsRow>
+					<SettingsRow
+						title="Noise cancellation"
+						description={
+							noiseSuppression
+								? `Applied to the microphone track on every recording. ${NOISE_PROFILES.find((p) => p.value === noiseProfile)?.detail ?? ""}`
+								: "Turned off in the microphone menu. Pick a profile to turn it back on."
+						}
+					>
+						<Select
+							value={noiseSuppression ? noiseProfile : "off"}
+							onValueChange={(value) =>
+								void run(async () => {
+									const next = value as NoiseProfile;
+									const result =
+										await window.electronAPI.setMicrophoneEnhancement(
+											next === "off"
+												? { noiseSuppression: false }
+												: { noiseSuppression: true, noiseProfile: next },
+										);
+									if (!result.success)
+										throw Error("Could not save noise cancellation");
+									setNoiseProfile(result.settings.noiseProfile);
+									setNoiseSuppression(result.settings.noiseSuppression);
+								})
+							}
+						>
+							<SelectTrigger className="w-56" aria-label="Noise cancellation">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{NOISE_PROFILES.map((profile) => (
+									<SelectItem key={profile.value} value={profile.value}>
+										{profile.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</SettingsRow>
 					{menuBarSupported && (
 						<SettingsRow

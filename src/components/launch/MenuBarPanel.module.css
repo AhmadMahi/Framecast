@@ -192,3 +192,17 @@
 	padding-left: 26px;
 	font-size: 12.5px;
 }
+
+.recordingDotPaused {
+	animation: none;
+	background: var(--muted);
+}
+
+.pauseGlyph {
+	display: inline-block;
+	width: 10px;
+	height: 12px;
+	border-left: 3px solid currentColor;
+	border-right: 3px solid currentColor;
+	box-sizing: border-box;
+}

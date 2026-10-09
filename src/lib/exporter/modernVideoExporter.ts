@@ -1120,7 +1120,7 @@ export class ModernVideoExporter {
 		];
 
 		if (this.runtimeDiagnostics.appVersion) {
-			lines.push(`Recordly version: ${this.runtimeDiagnostics.appVersion}`);
+			lines.push(`Framecast version: ${this.runtimeDiagnostics.appVersion}`);
 		}
 		if (this.runtimeDiagnostics.userAgent) {
 			lines.push(`Runtime: ${this.runtimeDiagnostics.userAgent}`);

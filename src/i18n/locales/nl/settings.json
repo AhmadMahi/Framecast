@@ -256,6 +256,9 @@
 	"updates": {
 		"experimentalDescription": "Je hebt experimentele updates ingeschakeld, dus je kunt de nieuwste update van Recordly testen voordat die breed beschikbaar is.",
 		"title": "Updates",
+		"check": "Controleren op updates",
+		"checkDescription": "Zoekt naar een nieuwere versie in het releasekanaal.",
+		"checkNow": "Nu controleren",
 		"experimental": "Experimentele updates",
 		"saveFailed": "Kan het updatekanaal niet wijzigen."
 	}

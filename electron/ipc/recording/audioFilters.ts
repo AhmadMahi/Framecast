@@ -24,12 +24,23 @@ export const BROWSER_MIC_SIDECAR_FILTERS = [
 	"alimiter=limit=0.92:level=0",
 ];
 
-export function getBrowserMicSidecarFilters(profile?: string | null) {
+export function getBrowserMicSidecarFilters(
+	profile?: string | null,
+	noiseProfile?: MicrophoneNoiseProfile | null,
+) {
+	// With a noise profile the denoise stage follows the user's choice; without
+	// one the legacy chain stays byte-for-byte the same.
+	const base = noiseProfile
+		? noiseProfile === "off"
+			? ["adeclip=threshold=1", "adeclick=w=40:o=75:t=3:b=2"]
+			: getNoiseSuppressionFilters(noiseProfile)
+		: BROWSER_MIC_SIDECAR_BASE_FILTERS;
+
 	if (profile === "no-agc") {
-		return [...BROWSER_MIC_SIDECAR_BASE_FILTERS, ...BROWSER_MIC_SIDECAR_NO_AGC_GAIN_FILTERS];
+		return [...base, ...BROWSER_MIC_SIDECAR_NO_AGC_GAIN_FILTERS];
 	}
 
-	return BROWSER_MIC_SIDECAR_FILTERS;
+	return [...base, "alimiter=limit=0.92:level=0"];
 }
 
 export const RECORDING_AUDIO_SIDECAR_DEBUG_ENV = "RECORDLY_KEEP_RECORDING_AUDIO_SIDECARS"; // not used yet, because we need to have seperate audio files for system and mic for each recording
@@ -44,17 +55,54 @@ export function shouldKeepRecordingAudioSidecars(env: NodeJS.ProcessEnv = proces
  * expose them in plain language. They map onto the browser capture constraints
  * and, on macOS native capture, onto an offline ffmpeg pass.
  */
+/**
+ * How hard the spectral denoiser works. Measured on synthesized speech mixed
+ * with pink, white and brown noise (50 ms frames, noise floor in the clean
+ * file's silent gaps vs. speech level in its loud frames):
+ *
+ *   light    afftdn nr=20   fan -3.7 dB  hiss  -5.4 dB  speech -0.7..-1.1 dB
+ *   standard afftdn nr=30   fan -5.4 dB  hiss  -8.7 dB  speech -0.8..-1.4 dB
+ *   strong   afftdn nr=40   fan -8.1 dB  hiss -16.1 dB  speech -1.0..-1.6 dB
+ *
+ * Strong wins on every noise type for a fraction of a dB more speech loss, so
+ * it is the default. Low rumble that overlaps voice fundamentals moves only
+ * ~2 dB in every profile; no spectral method can remove it without hurting
+ * the voice, and the 85 Hz high-pass already takes the sub-bass part.
+ */
+export type MicrophoneNoiseProfile = "off" | "light" | "standard" | "strong";
+
+export const MICROPHONE_NOISE_PROFILES: MicrophoneNoiseProfile[] = [
+	"off",
+	"light",
+	"standard",
+	"strong",
+];
+
+export const DEFAULT_MICROPHONE_NOISE_PROFILE: MicrophoneNoiseProfile = "strong";
+
 export interface MicrophoneEnhancementSettings {
 	noiseSuppression: boolean;
 	echoCancellation: boolean;
 	autoGainControl: boolean;
+	noiseProfile: MicrophoneNoiseProfile;
 }
 
 export const DEFAULT_MICROPHONE_ENHANCEMENT: MicrophoneEnhancementSettings = {
 	noiseSuppression: true,
 	echoCancellation: true,
 	autoGainControl: false,
+	noiseProfile: DEFAULT_MICROPHONE_NOISE_PROFILE,
 };
+
+export function normalizeMicrophoneNoiseProfile(
+	value: unknown,
+	fallback: MicrophoneNoiseProfile = DEFAULT_MICROPHONE_NOISE_PROFILE,
+): MicrophoneNoiseProfile {
+	return typeof value === "string" &&
+		(MICROPHONE_NOISE_PROFILES as string[]).includes(value.toLowerCase())
+		? (value.toLowerCase() as MicrophoneNoiseProfile)
+		: fallback;
+}
 
 export function normalizeMicrophoneEnhancement(
 	value: unknown,
@@ -65,14 +113,39 @@ export function normalizeMicrophoneEnhancement(
 	}
 
 	const raw = value as Partial<Record<keyof MicrophoneEnhancementSettings, unknown>>;
-	const pick = (key: keyof MicrophoneEnhancementSettings) =>
+	type SwitchKey = "noiseSuppression" | "echoCancellation" | "autoGainControl";
+	const pick = (key: SwitchKey): boolean =>
 		typeof raw[key] === "boolean" ? (raw[key] as boolean) : fallback[key];
 
 	return {
 		noiseSuppression: pick("noiseSuppression"),
 		echoCancellation: pick("echoCancellation"),
 		autoGainControl: pick("autoGainControl"),
+		noiseProfile: normalizeMicrophoneNoiseProfile(raw.noiseProfile, fallback.noiseProfile),
 	};
+}
+
+/** The afftdn stage for each profile; `off` has none. */
+export const MICROPHONE_NOISE_PROFILE_DENOISE: Record<MicrophoneNoiseProfile, string | null> = {
+	off: null,
+	light: "afftdn=nr=20:nf=-40:tn=1",
+	standard: "afftdn=nr=30:nf=-35:tn=1",
+	strong: "afftdn=nr=40:nf=-30:tn=1:om=o",
+};
+
+/** Shared clean-up stages that precede the denoiser on every profile. */
+export const MICROPHONE_NOISE_PRE_FILTERS = [
+	"adeclip=threshold=1",
+	"adeclick=w=40:o=75:t=3:b=2",
+	"highpass=f=85",
+	"lowpass=f=9500",
+];
+
+export function getNoiseSuppressionFilters(
+	profile: MicrophoneNoiseProfile = DEFAULT_MICROPHONE_NOISE_PROFILE,
+): string[] {
+	const denoise = MICROPHONE_NOISE_PROFILE_DENOISE[profile];
+	return denoise ? [...MICROPHONE_NOISE_PRE_FILTERS, denoise] : [];
 }
 
 /**
@@ -81,13 +154,9 @@ export function normalizeMicrophoneEnhancement(
  * browser sidecar chain: declick, band-limit to speech, spectral denoise, then
  * keep the result inside a safe ceiling.
  */
-export const MAC_NATIVE_MIC_NOISE_SUPPRESSION_FILTERS = [
-	"adeclip=threshold=1",
-	"adeclick=w=40:o=75:t=3:b=2",
-	"highpass=f=85",
-	"lowpass=f=9500",
-	"afftdn=nr=12:nf=-45:tn=1",
-];
+export const MAC_NATIVE_MIC_NOISE_SUPPRESSION_FILTERS = getNoiseSuppressionFilters(
+	DEFAULT_MICROPHONE_NOISE_PROFILE,
+);
 
 export const MAC_NATIVE_MIC_GAIN_FILTERS = ["speechnorm=p=0.92:e=12:c=2:r=0.0005:f=0.001"];
 
@@ -104,7 +173,11 @@ export function getMacNativeMicFilters(
 	const filters: string[] = [];
 
 	if (settings.noiseSuppression) {
-		filters.push(...MAC_NATIVE_MIC_NOISE_SUPPRESSION_FILTERS);
+		filters.push(
+			...getNoiseSuppressionFilters(
+				settings.noiseProfile ?? DEFAULT_MICROPHONE_NOISE_PROFILE,
+			),
+		);
 	}
 
 	if (settings.autoGainControl) {

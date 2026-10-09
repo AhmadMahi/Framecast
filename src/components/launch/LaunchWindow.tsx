@@ -80,8 +80,13 @@ function LaunchWindowContent() {
 	const hudContentRef = useRef<HTMLDivElement>(null);
 	const hudBarRef = useRef<HTMLDivElement>(null);
 
-	const { selectedSource, hasSelectedSource, handleSourceSelect, syncSelectedSource } =
-		useLaunchWindowActions();
+	const {
+		selectedSource,
+		hasSelectedSource,
+		handleSourceSelect,
+		handlePickSource,
+		syncSelectedSource,
+	} = useLaunchWindowActions();
 
 	const showWebcamControls = webcamEnabled && !recording;
 	const { devices, selectedDeviceId, setSelectedDeviceId } = useMicrophoneDevices(
@@ -219,7 +224,29 @@ function LaunchWindowContent() {
 
 	const idleControls = (
 		<>
-			{platform !== "linux" && (
+			{platform === "darwin" && (
+				<>
+					<Button
+						variant="ghost"
+						size="lg"
+						className={` ${styles.electronNoDrag} group gap-2 px-3 min-w-0 max-w-[180px] shrink-0 `}
+						title={selectedSource}
+						onClick={() => {
+							beginInteractiveHudAction();
+							void handlePickSource();
+						}}
+					>
+						<MonitorIcon size={18} className="size-5 shrink-0" />
+						<div className="flex-1 min-w-0 overflow-hidden">
+							<MarqueeText text={selectedSource} />
+						</div>
+					</Button>
+
+					<Separator orientation="vertical" className="mx-[5px] h-6 self-center" />
+				</>
+			)}
+
+			{platform !== "linux" && platform !== "darwin" && (
 				<>
 					<SourcePopover
 						selectedSource={selectedSource}

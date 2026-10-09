@@ -16,7 +16,7 @@ import {
 	stopWindowBoundsCapture,
 } from "../cursor/bounds";
 import { getDisplayBoundsForSource, getDisplayWorkAreaForSource } from "../recording/ffmpeg";
-import { selectedSource, setSelectedSource } from "../state";
+import { pickerSelection, selectedSource, setSelectedSource } from "../state";
 import type { SelectedSource, WindowBounds } from "../types";
 import { getScreen, parseWindowId } from "../utils";
 import { bringWindowsWindowForward, resolveWindowsWindowBounds } from "../windowsWindowControl";
@@ -410,7 +410,14 @@ export function registerSourceHandlers({
 			// ── 1. Resolve bounds ──
 			let bounds: { x: number; y: number; width: number; height: number } | null = null;
 
-			if (source.id?.startsWith("screen:")) {
+			if (source.id?.startsWith("picker:") && pickerSelection) {
+				bounds = {
+					x: pickerSelection.x,
+					y: pickerSelection.y,
+					width: pickerSelection.width,
+					height: pickerSelection.height,
+				};
+			} else if (source.id?.startsWith("screen:")) {
 				bounds =
 					process.platform === "darwin"
 						? getDisplayWorkAreaForSource(source)

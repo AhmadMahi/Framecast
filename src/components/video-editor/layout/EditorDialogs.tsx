@@ -41,8 +41,8 @@ interface EditorDialogsProps {
 	projectError: string | null;
 	onDashboardSignIn: () => void;
 	onDeleteProjects: (paths: string[]) => Promise<string[]>;
- onRenameProject: (path: string, name: string) => Promise<string>;
- onShareProject: (path: string) => Promise<void>;
+	onRenameProject: (path: string, name: string) => Promise<string>;
+	onShareProject: (path: string) => Promise<void>;
 	accountLabel?: string;
 	handleImportMediaOrProject: () => Promise<void>;
 	handleOpenProjectFromLibrary: (projectPath: string) => Promise<unknown>;
@@ -70,8 +70,8 @@ export function EditorDialogs({
 	projectError,
 	onDashboardSignIn,
 	onDeleteProjects,
- onRenameProject,
- onShareProject,
+	onRenameProject,
+	onShareProject,
 	accountLabel,
 	handleImportMediaOrProject,
 	handleOpenProjectFromLibrary,
@@ -188,8 +188,8 @@ export function EditorDialogs({
 				error={projectError}
 				onSignIn={onDashboardSignIn}
 				onDeleteProjects={onDeleteProjects}
- onRenameProject={onRenameProject}
- onShareProject={onShareProject}
+				onRenameProject={onRenameProject}
+				onShareProject={onShareProject}
 				accountLabel={accountLabel}
 				onImportFile={handleImportMediaOrProject}
 				onOpenProject={handleOpenProjectFromLibrary}

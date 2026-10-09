@@ -13,7 +13,7 @@ Language: EN | [简中](README.zh-CN.md)
 
 - **Menu bar panel** (macOS): start, pause and stop recording, switch microphone and camera, check for updates, and open Settings from a small translucent dropdown.
 - **Zoom-style picking** (macOS): choose any window, several windows at once, an app, or a display in Apple's system picker, including full-screen apps on their own Spaces.
-- **Noise cancellation**: selectable profiles applied to the microphone track, including on native macOS capture where the mic previously recorded raw.
+- **Noise cancellation**: selectable profiles (Light, Standard, Strong, and Studio powered by RNNoise) applied to the microphone track, including on native macOS capture where the mic previously recorded raw.
 - **Primary-display fix**: windows on the main screen no longer disappear from the picker when something is maximized in front of them.
 
 ### Create polished demo videos in minutes

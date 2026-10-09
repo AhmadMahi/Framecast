@@ -47,3 +47,18 @@ Source: https://github.com/480-Design/Solar-Icon-Set. Icons are rendered using t
 Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts).
 
 DM Sans is licensed under the SIL Open Font License, Version 1.1. The unmodified regular and italic variable fonts are sourced from [Google Fonts](https://github.com/google/fonts/tree/main/ofl/dmsans). The full license is included in [src/assets/fonts/dm-sans/OFL.txt](src/assets/fonts/dm-sans/OFL.txt).
+
+## RNNoise model (Studio noise cancellation)
+
+Framecast bundles a trained RNNoise model for the "Studio" microphone noise
+profile, applied through ffmpeg's `arnndn` filter.
+
+- File: `electron/native/models/rnnoise/sh.rnnn` (shipped as `assets/models/rnnoise/sh.rnnn`)
+- Source: [GregorR/rnnoise-models](https://github.com/GregorR/rnnoise-models), model `somnolent-hogwash-2018-09-01`
+- Trained for: recording-environment noise with speech signal, per the source repository
+- Terms: the source repository states that, apart from its tools directory and README,
+  "none of this work is creative and thus none of it is subject to copyright."
+
+RNNoise itself is by Jean-Marc Valin and the Xiph.Org Foundation and is
+licensed under the BSD 3-Clause License; the filter implementation used here is
+part of FFmpeg, whose notices are included with the bundled `ffmpeg-static` binary.

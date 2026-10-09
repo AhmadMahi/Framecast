@@ -27,13 +27,14 @@ export const BROWSER_MIC_SIDECAR_FILTERS = [
 export function getBrowserMicSidecarFilters(
 	profile?: string | null,
 	noiseProfile?: MicrophoneNoiseProfile | null,
+	options: NoiseFilterOptions = {},
 ) {
 	// With a noise profile the denoise stage follows the user's choice; without
 	// one the legacy chain stays byte-for-byte the same.
 	const base = noiseProfile
 		? noiseProfile === "off"
 			? ["adeclip=threshold=1", "adeclick=w=40:o=75:t=3:b=2"]
-			: getNoiseSuppressionFilters(noiseProfile)
+			: getNoiseSuppressionFilters(noiseProfile, options)
 		: BROWSER_MIC_SIDECAR_BASE_FILTERS;
 
 	if (profile === "no-agc") {
@@ -69,14 +70,29 @@ export function shouldKeepRecordingAudioSidecars(env: NodeJS.ProcessEnv = proces
  * ~2 dB in every profile; no spectral method can remove it without hurting
  * the voice, and the 85 Hz high-pass already takes the sub-bass part.
  */
-export type MicrophoneNoiseProfile = "off" | "light" | "standard" | "strong";
+export type MicrophoneNoiseProfile = "off" | "light" | "standard" | "strong" | "studio";
 
 export const MICROPHONE_NOISE_PROFILES: MicrophoneNoiseProfile[] = [
 	"off",
 	"light",
 	"standard",
 	"strong",
+	"studio",
 ];
+
+/** Runtime inputs the filter builder cannot know on its own. */
+export interface NoiseFilterOptions {
+	/** Absolute path to the bundled RNNoise model; null when it is unavailable. */
+	rnnoiseModelPath?: string | null;
+}
+
+/**
+ * Escapes a value for use inside an ffmpeg filter option (`key=value`), where
+ * backslash, colon and single quote are structural characters.
+ */
+export function escapeFilterOptionValue(value: string): string {
+	return value.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "\\'");
+}
 
 export const DEFAULT_MICROPHONE_NOISE_PROFILE: MicrophoneNoiseProfile = "strong";
 
@@ -125,8 +141,14 @@ export function normalizeMicrophoneEnhancement(
 	};
 }
 
-/** The afftdn stage for each profile; `off` has none. */
-export const MICROPHONE_NOISE_PROFILE_DENOISE: Record<MicrophoneNoiseProfile, string | null> = {
+/**
+ * The denoise stage for each classic profile; `off` has none. `studio` is the
+ * RNNoise neural suppressor and is built from the model path at call time.
+ */
+export const MICROPHONE_NOISE_PROFILE_DENOISE: Record<
+	Exclude<MicrophoneNoiseProfile, "studio">,
+	string | null
+> = {
 	off: null,
 	light: "afftdn=nr=20:nf=-40:tn=1",
 	standard: "afftdn=nr=30:nf=-35:tn=1",
@@ -143,7 +165,19 @@ export const MICROPHONE_NOISE_PRE_FILTERS = [
 
 export function getNoiseSuppressionFilters(
 	profile: MicrophoneNoiseProfile = DEFAULT_MICROPHONE_NOISE_PROFILE,
+	options: NoiseFilterOptions = {},
 ): string[] {
+	if (profile === "studio") {
+		// Without the model the strongest classic chain is the honest fallback.
+		if (!options.rnnoiseModelPath) {
+			return getNoiseSuppressionFilters("strong", options);
+		}
+		return [
+			...MICROPHONE_NOISE_PRE_FILTERS,
+			`arnndn=m=${escapeFilterOptionValue(options.rnnoiseModelPath)}:mix=1`,
+		];
+	}
+
 	const denoise = MICROPHONE_NOISE_PROFILE_DENOISE[profile];
 	return denoise ? [...MICROPHONE_NOISE_PRE_FILTERS, denoise] : [];
 }
@@ -169,6 +203,7 @@ export const MAC_NATIVE_MIC_LIMITER_FILTERS = ["alimiter=limit=0.92:level=0"];
  */
 export function getMacNativeMicFilters(
 	settings: MicrophoneEnhancementSettings = DEFAULT_MICROPHONE_ENHANCEMENT,
+	options: NoiseFilterOptions = {},
 ): string[] {
 	const filters: string[] = [];
 
@@ -176,6 +211,7 @@ export function getMacNativeMicFilters(
 		filters.push(
 			...getNoiseSuppressionFilters(
 				settings.noiseProfile ?? DEFAULT_MICROPHONE_NOISE_PROFILE,
+				options,
 			),
 		);
 	}

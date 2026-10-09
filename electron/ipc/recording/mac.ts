@@ -6,6 +6,7 @@ import { BrowserWindow } from "electron";
 import { getFfmpegBinaryPath } from "../ffmpeg/binary";
 import { getMacNativeMicFilters, type MicrophoneEnhancementSettings } from "./audioFilters";
 import { readMicrophoneEnhancementSetting } from "../settings/microphoneEnhancement";
+import { resolveRnnoiseModelPath } from "./rnnoiseModel";
 import {
 	persistPendingCursorTelemetry,
 	snapshotCursorTelemetryForPersistence,
@@ -49,7 +50,9 @@ async function applyMacNativeMicEnhancement(
 	micPath: string,
 	settings?: MicrophoneEnhancementSettings | null,
 ): Promise<void> {
-	const filters = getMacNativeMicFilters(settings ?? readMicrophoneEnhancementSetting());
+	const filters = getMacNativeMicFilters(settings ?? readMicrophoneEnhancementSetting(), {
+		rnnoiseModelPath: resolveRnnoiseModelPath(),
+	});
 	if (filters.length === 0) {
 		return;
 	}

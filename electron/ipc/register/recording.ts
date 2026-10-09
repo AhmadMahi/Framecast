@@ -73,6 +73,7 @@ import {
 } from "../recording/mac";
 import { resolveRecordedVideoStoragePath } from "../recording/storagePath";
 import { readMicrophoneEnhancementSetting } from "../settings/microphoneEnhancement";
+import { resolveRnnoiseModelPath } from "../recording/rnnoiseModel";
 import {
 	attachWindowsCaptureLifecycle,
 	isNativeWindowsCaptureAvailable,
@@ -1921,6 +1922,7 @@ export function registerRecordingHandlers(
 							...getBrowserMicSidecarFilters(
 								options?.browserMicrophoneProfile,
 								readMicrophoneEnhancementSetting().noiseProfile,
+								{ rnnoiseModelPath: resolveRnnoiseModelPath() },
 							),
 							"aresample=async=1:first_pts=0",
 						].join(","),

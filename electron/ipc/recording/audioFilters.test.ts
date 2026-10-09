@@ -5,6 +5,7 @@ import {
 	BROWSER_MIC_SIDECAR_NO_AGC_GAIN_FILTERS,
 	DEFAULT_MICROPHONE_ENHANCEMENT,
 	DEFAULT_MICROPHONE_NOISE_PROFILE,
+	escapeFilterOptionValue,
 	getNoiseSuppressionFilters,
 	getBrowserMicrophoneProfileForEnhancement,
 	getBrowserMicSidecarFilters,
@@ -102,9 +103,28 @@ describe("microphone enhancement settings", () => {
 	it("defaults to the strongest measured profile and rejects unknown ones", () => {
 		expect(DEFAULT_MICROPHONE_NOISE_PROFILE).toBe("strong");
 		expect(normalizeMicrophoneNoiseProfile("LIGHT")).toBe("light");
-		expect(normalizeMicrophoneNoiseProfile("studio")).toBe("strong");
+		expect(normalizeMicrophoneNoiseProfile("ultra")).toBe("strong");
+		expect(normalizeMicrophoneNoiseProfile("studio")).toBe("studio");
 		expect(normalizeMicrophoneEnhancement({ noiseProfile: "standard" }).noiseProfile).toBe(
 			"standard",
+		);
+	});
+
+	it("uses RNNoise for studio when the model exists and falls back to strong otherwise", () => {
+		const withModel = getNoiseSuppressionFilters("studio", {
+			rnnoiseModelPath:
+				"/Applications/Framecast.app/Contents/Resources/assets/models/rnnoise/model.rnnn",
+		});
+		expect(withModel.some((f) => f.startsWith("arnndn=m=") && f.endsWith(":mix=1"))).toBe(true);
+		expect(withModel.some((f) => f.startsWith("afftdn="))).toBe(false);
+		expect(getNoiseSuppressionFilters("studio", { rnnoiseModelPath: null })).toEqual(
+			getNoiseSuppressionFilters("strong"),
+		);
+	});
+
+	it("escapes filter option values so paths cannot break the graph", () => {
+		expect(escapeFilterOptionValue("C:\\Users\\o'neil\\m.rnnn")).toBe(
+			"C\\:\\\\Users\\\\o\\'neil\\\\m.rnnn",
 		);
 	});
 

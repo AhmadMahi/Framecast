@@ -13,9 +13,14 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 
-type NoiseProfile = "off" | "light" | "standard" | "strong";
+type NoiseProfile = "off" | "light" | "standard" | "strong" | "studio";
 
 const NOISE_PROFILES: Array<{ value: NoiseProfile; label: string; detail: string }> = [
+	{
+		value: "studio",
+		label: "Studio (RNNoise)",
+		detail: "Neural speech denoiser; strongest on voices, may clip very quiet speech",
+	},
 	{ value: "strong", label: "Strong (recommended)", detail: "Hiss -16 dB, fan -8 dB" },
 	{ value: "standard", label: "Standard", detail: "Hiss -9 dB, fan -5 dB" },
 	{ value: "light", label: "Light", detail: "Hiss -5 dB, fan -4 dB" },

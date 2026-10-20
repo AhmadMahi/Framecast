@@ -125,8 +125,8 @@ async function installMicrophones(page: Page, options: { granted: boolean; enabl
 					if (!state.granted) throw new DOMException("denied", "NotAllowedError");
 					return { getTracks: () => [] };
 				},
-				addEventListener: () => {},
-				removeEventListener: () => {},
+				addEventListener: () => undefined,
+				removeEventListener: () => undefined,
 			},
 		});
 		const api = (window as unknown as { electronAPI: Record<string, unknown> }).electronAPI;

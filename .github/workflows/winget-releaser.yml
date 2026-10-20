@@ -7,7 +7,12 @@ on:
 jobs:
   publish:
     runs-on: windows-latest
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Publishes upstream Recordly's WinGet package (Webadderall.Recordly), which
+    # needs a WINGET_ACC_TOKEN secret. Framecast has no WinGet package, so
+    # forks skip it.
+    if: >-
+      github.repository == 'webadderallorg/Recordly' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
     steps:
       - name: Get release tag
         id: tag

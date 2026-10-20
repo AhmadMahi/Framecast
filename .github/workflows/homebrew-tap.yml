@@ -18,6 +18,9 @@ permissions:
 
 jobs:
   update-tap:
+    # Publishes upstream Recordly's cask to its own tap, which needs a
+    # HOMEBREW_TAP_TOKEN secret. Framecast has no tap, so forks skip it.
+    if: github.repository == 'webadderallorg/Recordly'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

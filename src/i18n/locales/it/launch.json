@@ -58,7 +58,18 @@
 			"upToDateTitle": "Recordly {{version}} è aggiornato.",
 			"availableTitle": "Recordly {{version}} è disponibile.",
 			"availableGenericTitle": "È disponibile un aggiornamento."
-		}
+		},
+		"pauseRecording": "Metti in pausa",
+		"resumeRecording": "Riprendi registrazione",
+		"camera": "Fotocamera",
+		"turnOnCamera": "Attiva fotocamera",
+		"turnOffCamera": "Disattiva fotocamera",
+		"checkForUpdates": "Controlla aggiornamenti",
+		"openSettings": "Apri impostazioni",
+		"startRecording": "Avvia registrazione",
+		"stopRecording": "Interrompi registrazione",
+		"on": "Sì",
+		"off": "No"
 	},
 	"sourceSelector": {
 		"loadingSources": "Caricamento sorgenti...",
@@ -118,6 +129,14 @@
 		"noise_studio": "Studio",
 		"cancel": "Annulla",
 		"select": "Seleziona",
-		"startRecording": "Avvia registrazione"
+		"startRecording": "Avvia registrazione",
+		"refresh": "Aggiorna",
+		"permissionTitle": "Framecast non vede ancora le tue finestre",
+		"permissionBody": "Attiva Framecast in Impostazioni di Sistema › Privacy e sicurezza › Registrazione schermo e audio di sistema, scegli Esci e riapri, poi riapri questa finestra.",
+		"openSettings": "Apri Impostazioni di Sistema",
+		"noWindows": "Nessuna finestra aperta. Apri un’app e premi Aggiorna.",
+		"on": "Sì",
+		"off": "No",
+		"needsMic": "Serve un microfono"
 	}
 }

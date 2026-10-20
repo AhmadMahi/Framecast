@@ -54,8 +54,13 @@ import {
 	createHudOverlayWindow,
 	createSourceSelectorWindow,
 	closeShareWindow,
+	destroyMenuBarPanelWindow,
 	getShareWindow,
+	hideMenuBarPanelWindow,
+	isMenuBarPanelVisible,
 	openShareWindow,
+	resizeMenuBarPanelWindow,
+	showMenuBarPanelWindow,
 	whenHudRendererReady,
 	getHudOverlayWindow,
 	getUpdateToastWindow,
@@ -323,6 +328,27 @@ function destroyTray() {
 	tray.destroy();
 	tray = null;
 	trayContextMenu = null;
+}
+
+/**
+ * Opens the menu bar panel under the icon that was clicked; a second click
+ * puts it away. The panel is built on first use, not at startup.
+ */
+function toggleMenuBarPanel() {
+	if (!tray) {
+		return;
+	}
+
+	if (isMenuBarPanelVisible()) {
+		hideMenuBarPanelWindow();
+		return;
+	}
+
+	const trayBounds = tray.getBounds();
+	showMenuBarPanelWindow({
+		x: trayBounds.x + trayBounds.width / 2,
+		y: trayBounds.y + trayBounds.height,
+	});
 }
 
 function showHudOverlayFromTray() {
@@ -593,20 +619,21 @@ function isPrimaryTrayClick(event: unknown) {
 function createTray() {
 	tray = new Tray(getDefaultTrayIcon());
 	console.log(`[main] Tray created (platform: ${process.platform})`);
-	// On macOS the native menu set in updateTrayMenu opens on click by itself.
-	if (process.platform === "darwin") {
-		return;
-	}
-
 	tray.on("click", (event) => {
 		if (process.platform === "win32" && !isPrimaryTrayClick(event)) {
+			return;
+		}
+
+		// On macOS the menu bar icon opens its translucent panel.
+		if (process.platform === "darwin") {
+			toggleMenuBarPanel();
 			return;
 		}
 
 		focusOrCreateMainWindow();
 	});
 
-	if (process.platform === "win32") {
+	if (process.platform === "win32" || process.platform === "darwin") {
 		tray.on("right-click", () => {
 			if (!tray || !trayContextMenu) {
 				return;
@@ -647,6 +674,7 @@ function setMenuBarIconEnabled(enabled: boolean) {
 		updateTrayMenu(trayRecordingActive);
 	} else {
 		destroyTray();
+		destroyMenuBarPanelWindow();
 	}
 
 	return menuBarIconEnabled;
@@ -830,6 +858,49 @@ type RecordingChoices = {
 	systemAudioEnabled: boolean;
 };
 
+ipcMain.on("menu-bar-panel:hide", () => {
+	hideMenuBarPanelWindow();
+});
+
+ipcMain.on("menu-bar-panel:resize", (_event, height: number) => {
+	resizeMenuBarPanelWindow(height);
+});
+
+// Start asks what to record first, in the Share window, which then hands the
+// choices to the HUD to begin.
+ipcMain.handle("menu-bar-panel:start-recording", () => {
+	hideMenuBarPanelWindow();
+	openShareWindow("record");
+	return { success: true };
+});
+
+ipcMain.handle("menu-bar-panel:stop-recording", () => {
+	hideMenuBarPanelWindow();
+	return { success: sendToHud("stop-recording-from-tray") };
+});
+
+ipcMain.handle("menu-bar-panel:pause-recording", () => {
+	hideMenuBarPanelWindow();
+	return { success: sendToHud("pause-recording-from-tray") };
+});
+
+ipcMain.handle("menu-bar-panel:resume-recording", () => {
+	hideMenuBarPanelWindow();
+	return { success: sendToHud("resume-recording-from-tray") };
+});
+
+ipcMain.handle("menu-bar-panel:open-settings", () => {
+	hideMenuBarPanelWindow();
+	openSettingsInStudio();
+	return { success: true };
+});
+
+ipcMain.handle("menu-bar-panel:check-updates", async () => {
+	hideMenuBarPanelWindow();
+	await checkForAppUpdates(getUpdateDialogWindow, { manual: true });
+	return { success: true };
+});
+
 ipcMain.handle("share-window:open", (_event, intent: "record" | "select") => {
 	openShareWindow(intent === "select" ? "select" : "record");
 	return { success: true };
@@ -887,48 +958,6 @@ ipcMain.handle("check-for-app-updates", async () => {
 	return { success: true, logPath: getUpdaterLogPath() };
 });
 
-/**
- * A real macOS menu: it costs nothing until opened and looks native. Start
- * opens the Share window; everything else lives in the studio.
- */
-function buildMacMenuBarMenu(recording: boolean) {
-	return Menu.buildFromTemplate([
-		recording
-			? {
-					label: "Stop Recording",
-					click: () => {
-						sendToHud("stop-recording-from-tray");
-					},
-				}
-			: {
-					label: "Start Recording…",
-					click: () => {
-						openShareWindow("record");
-					},
-				},
-		{ type: "separator" },
-		{
-			label: "Open Settings…",
-			click: () => {
-				openSettingsInStudio();
-			},
-		},
-		{
-			label: "Check for Updates…",
-			click: () => {
-				void checkForAppUpdates(getUpdateDialogWindow, { manual: true });
-			},
-		},
-		{ type: "separator" },
-		{
-			label: "Quit Framecast",
-			click: () => {
-				app.quit();
-			},
-		},
-	]);
-}
-
 function updateTrayMenu(recording: boolean = false) {
 	trayRecordingActive = recording;
 	if (!tray) return;
@@ -969,14 +998,21 @@ function updateTrayMenu(recording: boolean = false) {
 					},
 				},
 			];
-	const menu =
-		process.platform === "darwin"
-			? buildMacMenuBarMenu(recording)
-			: Menu.buildFromTemplate(menuTemplate);
+	if (process.platform === "darwin" && !recording) {
+		menuTemplate.splice(1, 0, {
+			label: "Open Projects",
+			click: () => {
+				createEditorWindowWrapper();
+			},
+		});
+	}
+
+	const menu = Menu.buildFromTemplate(menuTemplate);
 	trayContextMenu = menu;
 	tray.setImage(trayIcon);
 	tray.setToolTip(trayToolTip);
-	if (process.platform !== "win32") {
+	// A context menu would hijack the left click that opens the panel on macOS.
+	if (process.platform !== "win32" && process.platform !== "darwin") {
 		tray.setContextMenu(menu);
 	}
 }

@@ -1922,14 +1922,25 @@ export function registerRecordingHandlers(
 		}
 	});
 
+	// The menu bar panel shows a paused clock, so pause state reaches every window.
+	const broadcastPausedState = (paused: boolean) => {
+		for (const window of BrowserWindow.getAllWindows()) {
+			if (!window.isDestroyed()) {
+				window.webContents.send("recording-paused-changed", { paused });
+			}
+		}
+	};
+
 	ipcMain.handle("pause-cursor-capture", (_, pausedAtMs?: unknown) => {
 		pauseCursorCaptureAtBoundary(normalizeRendererTimestampMs(pausedAtMs));
+		broadcastPausedState(true);
 		return { success: true };
 	});
 
 	ipcMain.handle("resume-cursor-capture", (_, resumedAtMs?: unknown) => {
 		resumeCursorCapture(normalizeRendererTimestampMs(resumedAtMs));
 		sampleCursorPoint();
+		broadcastPausedState(false);
 		return { success: true };
 	});
 

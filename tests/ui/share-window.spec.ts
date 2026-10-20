@@ -208,3 +208,26 @@ test("Escape cancels without saving anything", async ({ page }) => {
 		.poll(async () => (await calls(page)).map((c) => c.name))
 		.toEqual(["cancelShareWindow"]);
 });
+
+test("an empty window list explains the missing permission instead of claiming no windows", async ({
+	page,
+}) => {
+	await installShareBridge(page);
+	await page.addInitScript(() => {
+		const api = (window as unknown as { electronAPI: Record<string, unknown> }).electronAPI;
+		const original = api.getSources as () => Promise<Array<{ id: string }>>;
+		api.getSources = async () => (await original()).filter((s) => s.id.startsWith("screen:"));
+		api.getWindowListHealth = async () => ({ error: "SCREEN_RECORDING_PERMISSION_DENIED" });
+		api.getScreenRecordingPermissionStatus = async () => ({ success: true, status: "denied" });
+		api.openScreenRecordingPreferences = async () => {
+			document.documentElement.dataset.openedSettings = "true";
+			return { success: true };
+		};
+	});
+	await page.goto("/?windowType=share&intent=record");
+
+	await expect(page.getByText("Framecast can't see your windows yet")).toBeVisible();
+	await expect(page.getByText("No open windows found", { exact: false })).toHaveCount(0);
+	await page.getByRole("button", { name: "Open System Settings" }).click();
+	await expect(page.locator("html")).toHaveAttribute("data-opened-settings", "true");
+});

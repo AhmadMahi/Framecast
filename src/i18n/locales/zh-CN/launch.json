@@ -58,7 +58,18 @@
 			"upToDateTitle": "Recordly {{version}} 已是最新版本。",
 			"availableTitle": "Recordly {{version}} 可更新。",
 			"availableGenericTitle": "有可用更新。"
-		}
+		},
+		"pauseRecording": "暂停录制",
+		"resumeRecording": "继续录制",
+		"camera": "摄像头",
+		"turnOnCamera": "打开摄像头",
+		"turnOffCamera": "关闭摄像头",
+		"checkForUpdates": "检查更新",
+		"openSettings": "打开设置",
+		"startRecording": "开始录制",
+		"stopRecording": "停止录制",
+		"on": "开",
+		"off": "关"
 	},
 	"sourceSelector": {
 		"loadingSources": "正在加载源...",
@@ -118,6 +129,14 @@
 		"noise_studio": "录音室",
 		"cancel": "取消",
 		"select": "选择",
-		"startRecording": "开始录制"
+		"startRecording": "开始录制",
+		"refresh": "刷新",
+		"permissionTitle": "Framecast 还无法看到你的窗口",
+		"permissionBody": "请在“系统设置 › 隐私与安全性 › 屏幕与系统音频录制”中打开 Framecast，选择“退出并重新打开”，然后再次打开此窗口。",
+		"openSettings": "打开系统设置",
+		"noWindows": "没有打开的窗口。请打开一个应用，然后点按“刷新”。",
+		"on": "开",
+		"off": "关",
+		"needsMic": "需要麦克风"
 	}
 }

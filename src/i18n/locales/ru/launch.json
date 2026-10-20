@@ -58,7 +58,18 @@
 			"upToDateTitle": "У вас актуальная версия Recordly {{version}}.",
 			"availableTitle": "Доступна новая версия Recordly {{version}}.",
 			"availableGenericTitle": "Доступно обновление."
-		}
+		},
+		"pauseRecording": "Приостановить запись",
+		"resumeRecording": "Продолжить запись",
+		"camera": "Камера",
+		"turnOnCamera": "Включить камеру",
+		"turnOffCamera": "Выключить камеру",
+		"checkForUpdates": "Проверить обновления",
+		"openSettings": "Открыть настройки",
+		"startRecording": "Начать запись",
+		"stopRecording": "Остановить запись",
+		"on": "Вкл",
+		"off": "Выкл"
 	},
 	"sourceSelector": {
 		"loadingSources": "Загрузка источников...",
@@ -118,6 +129,14 @@
 		"noise_studio": "Студия",
 		"cancel": "Отмена",
 		"select": "Выбрать",
-		"startRecording": "Начать запись"
+		"startRecording": "Начать запись",
+		"refresh": "Обновить",
+		"permissionTitle": "Framecast пока не видит ваши окна",
+		"permissionBody": "Включите Framecast в Системных настройках › Конфиденциальность и безопасность › Запись экрана и системного звука, выберите «Завершить и открыть снова», затем снова откройте это окно.",
+		"openSettings": "Открыть Системные настройки",
+		"noWindows": "Открытых окон нет. Откройте приложение и нажмите «Обновить».",
+		"on": "Вкл",
+		"off": "Выкл",
+		"needsMic": "Нужен микрофон"
 	}
 }

@@ -1178,6 +1178,183 @@ export function closeCountdownWindow(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Menu bar panel
+// ---------------------------------------------------------------------------
+
+const MENU_BAR_PANEL_WIDTH = 320;
+const MENU_BAR_PANEL_MIN_HEIGHT = 180;
+const MENU_BAR_PANEL_MAX_HEIGHT = 620;
+const MENU_BAR_PANEL_INITIAL_HEIGHT = 300;
+const MENU_BAR_PANEL_EDGE_MARGIN = 8;
+
+let menuBarPanelWindow: BrowserWindow | null = null;
+
+export function getMenuBarPanelWindow(): BrowserWindow | null {
+	return menuBarPanelWindow && !menuBarPanelWindow.isDestroyed() ? menuBarPanelWindow : null;
+}
+
+/**
+ * Clamps the panel to the display holding the menu bar icon so it never hangs
+ * off the edge when the icon sits near a corner.
+ */
+function getMenuBarPanelBounds(anchor: { x: number; y: number }, height: number) {
+	const display = getScreen().getDisplayNearestPoint({
+		x: Math.round(anchor.x),
+		y: Math.round(anchor.y),
+	});
+	const { workArea } = display;
+	const clampedHeight = Math.min(
+		Math.max(height, MENU_BAR_PANEL_MIN_HEIGHT),
+		Math.min(MENU_BAR_PANEL_MAX_HEIGHT, workArea.height - MENU_BAR_PANEL_EDGE_MARGIN * 2),
+	);
+
+	const maxX = workArea.x + workArea.width - MENU_BAR_PANEL_WIDTH - MENU_BAR_PANEL_EDGE_MARGIN;
+	const minX = workArea.x + MENU_BAR_PANEL_EDGE_MARGIN;
+	const x = Math.round(
+		Math.min(Math.max(anchor.x - MENU_BAR_PANEL_WIDTH / 2, minX), Math.max(minX, maxX)),
+	);
+	const y = Math.round(Math.max(anchor.y + MENU_BAR_PANEL_EDGE_MARGIN, workArea.y));
+
+	return { x, y, width: MENU_BAR_PANEL_WIDTH, height: clampedHeight };
+}
+
+export function createMenuBarPanelWindow(): BrowserWindow {
+	const win = new BrowserWindow({
+		width: MENU_BAR_PANEL_WIDTH,
+		height: MENU_BAR_PANEL_INITIAL_HEIGHT,
+		show: false,
+		frame: false,
+		transparent: true,
+		backgroundColor: "#00000000",
+		resizable: false,
+		movable: false,
+		minimizable: false,
+		maximizable: false,
+		fullscreenable: false,
+		skipTaskbar: true,
+		alwaysOnTop: true,
+		hasShadow: true,
+		// A panel floats above ordinary windows without taking over the Dock or
+		// the app switcher, which is what a menu bar popover should do.
+		...(process.platform === "darwin"
+			? {
+					type: "panel" as const,
+					vibrancy: "popover" as const,
+					visualEffectState: "active" as const,
+					roundedCorners: true,
+				}
+			: {}),
+		webPreferences: {
+			preload: path.join(electronWindowsDir, "preload.mjs"),
+			nodeIntegration: false,
+			contextIsolation: true,
+		},
+	});
+
+	win.setAlwaysOnTop(true, "status");
+	win.setVisibleOnAllWorkspaces(true, {
+		visibleOnFullScreen: true,
+		// Keep Recordly a foreground application so macOS does not drop its Dock
+		// icon while the panel is open.
+		skipTransformProcessType: process.platform === "darwin",
+	});
+
+	// A menu bar popover closes as soon as attention moves elsewhere.
+	win.on("blur", () => {
+		if (!win.isDestroyed() && win.isVisible()) {
+			win.hide();
+		}
+	});
+
+	win.on("closed", () => {
+		if (menuBarPanelWindow === win) {
+			menuBarPanelWindow = null;
+		}
+	});
+
+	menuBarPanelWindow = win;
+
+	if (VITE_DEV_SERVER_URL) {
+		win.loadURL(`${VITE_DEV_SERVER_URL}?windowType=menu-bar-panel`);
+	} else {
+		const packagedBaseUrl = getPackagedRendererBaseUrl();
+		if (packagedBaseUrl) {
+			win.loadURL(`${packagedBaseUrl}?windowType=menu-bar-panel`);
+		} else {
+			win.loadFile(path.join(RENDERER_DIST, "index.html"), {
+				query: { windowType: "menu-bar-panel" },
+			});
+		}
+	}
+
+	return win;
+}
+
+export function showMenuBarPanelWindow(anchor: { x: number; y: number }): BrowserWindow {
+	const win = getMenuBarPanelWindow() ?? createMenuBarPanelWindow();
+	const bounds = getMenuBarPanelBounds(anchor, win.getBounds().height);
+	win.setBounds(bounds, false);
+
+	// Showing before the renderer has painted would flash an empty translucent
+	// box, so a cold panel waits for its first load.
+	if (win.webContents.isLoading()) {
+		win.webContents.once("did-finish-load", () => {
+			if (!win.isDestroyed()) {
+				win.setBounds(getMenuBarPanelBounds(anchor, win.getBounds().height), false);
+				win.show();
+				win.focus();
+			}
+		});
+		return win;
+	}
+
+	win.show();
+	win.focus();
+	return win;
+}
+
+export function hideMenuBarPanelWindow() {
+	const win = getMenuBarPanelWindow();
+	if (win?.isVisible()) {
+		win.hide();
+	}
+}
+
+export function isMenuBarPanelVisible(): boolean {
+	return Boolean(getMenuBarPanelWindow()?.isVisible());
+}
+
+/**
+ * The panel grows and shrinks as sections expand, so the renderer reports its
+ * measured height and the window follows it while staying anchored to the icon.
+ */
+export function resizeMenuBarPanelWindow(height: number) {
+	const win = getMenuBarPanelWindow();
+	if (!win || !Number.isFinite(height)) {
+		return;
+	}
+
+	const current = win.getBounds();
+	const bounds = getMenuBarPanelBounds(
+		{ x: current.x + current.width / 2, y: current.y - MENU_BAR_PANEL_EDGE_MARGIN },
+		Math.round(height),
+	);
+	if (bounds.height === current.height && bounds.y === current.y) {
+		return;
+	}
+
+	win.setBounds({ ...bounds, x: current.x }, false);
+}
+
+export function destroyMenuBarPanelWindow() {
+	const win = getMenuBarPanelWindow();
+	if (win) {
+		win.destroy();
+	}
+	menuBarPanelWindow = null;
+}
+
+// ---------------------------------------------------------------------------
 // Share window (macOS)
 // ---------------------------------------------------------------------------
 
@@ -1215,8 +1392,8 @@ export function openShareWindow(intent: ShareWindowIntent): BrowserWindow {
 	const win = new BrowserWindow({
 		width,
 		height,
-		minWidth: 640,
-		minHeight: 460,
+		minWidth: 720,
+		minHeight: 480,
 		x: Math.round(workArea.x + (workArea.width - width) / 2),
 		y: Math.round(workArea.y + (workArea.height - height) / 2),
 		show: false,

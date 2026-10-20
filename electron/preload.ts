@@ -241,6 +241,48 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	openUpdateDownloadPage: () => {
 		return ipcRenderer.invoke("open-update-download-page");
 	},
+	hideMenuBarPanel: () => {
+		ipcRenderer.send("menu-bar-panel:hide");
+	},
+	resizeMenuBarPanel: (height: number) => {
+		ipcRenderer.send("menu-bar-panel:resize", height);
+	},
+	startRecordingFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:start-recording");
+	},
+	stopRecordingFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:stop-recording");
+	},
+	pauseRecordingFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:pause-recording");
+	},
+	resumeRecordingFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:resume-recording");
+	},
+	openSettingsFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:open-settings");
+	},
+	checkForAppUpdatesFromMenuBar: () => {
+		return ipcRenderer.invoke("menu-bar-panel:check-updates");
+	},
+	onRecordingPausedChanged: (callback: (state: { paused: boolean }) => void) => {
+		const listener = (_event: unknown, state: { paused: boolean }) => callback(state);
+		ipcRenderer.on("recording-paused-changed", listener);
+		return () => ipcRenderer.removeListener("recording-paused-changed", listener);
+	},
+	onPauseRecordingFromTray: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("pause-recording-from-tray", listener);
+		return () => ipcRenderer.removeListener("pause-recording-from-tray", listener);
+	},
+	onResumeRecordingFromTray: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("resume-recording-from-tray", listener);
+		return () => ipcRenderer.removeListener("resume-recording-from-tray", listener);
+	},
+	getWindowListHealth: () => {
+		return ipcRenderer.invoke("get-window-list-health");
+	},
 	openShareWindow: (intent: "record" | "select") => {
 		return ipcRenderer.invoke("share-window:open", intent);
 	},

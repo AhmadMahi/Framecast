@@ -49,3 +49,6 @@ gpu-export-probe.mp4
 # Browser test output
 test-results/
 playwright-report/
+
+# Locally built installers kept beside the source
+/*.dmg

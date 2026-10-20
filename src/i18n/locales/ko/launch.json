@@ -58,7 +58,18 @@
 			"upToDateTitle": "Recordly {{version}}은(는) 최신 버전입니다.",
 			"availableTitle": "Recordly {{version}}을(를) 사용할 수 있습니다.",
 			"availableGenericTitle": "업데이트를 사용할 수 있습니다."
-		}
+		},
+		"pauseRecording": "녹화 일시정지",
+		"resumeRecording": "녹화 재개",
+		"camera": "카메라",
+		"turnOnCamera": "카메라 켜기",
+		"turnOffCamera": "카메라 끄기",
+		"checkForUpdates": "업데이트 확인",
+		"openSettings": "설정 열기",
+		"startRecording": "녹화 시작",
+		"stopRecording": "녹화 중지",
+		"on": "켬",
+		"off": "끔"
 	},
 	"sourceSelector": {
 		"loadingSources": "소스를 불러오는 중...",
@@ -118,6 +129,14 @@
 		"noise_studio": "스튜디오",
 		"cancel": "취소",
 		"select": "선택",
-		"startRecording": "녹화 시작"
+		"startRecording": "녹화 시작",
+		"refresh": "새로 고침",
+		"permissionTitle": "Framecast가 아직 창을 볼 수 없습니다",
+		"permissionBody": "시스템 설정 › 개인정보 보호 및 보안 › 화면 및 시스템 오디오 녹음에서 Framecast를 켜고 종료 후 다시 열기를 선택한 다음 이 창을 다시 여세요.",
+		"openSettings": "시스템 설정 열기",
+		"noWindows": "열린 창이 없습니다. 앱을 연 다음 새로 고침을 누르세요.",
+		"on": "켬",
+		"off": "끔",
+		"needsMic": "마이크 필요"
 	}
 }

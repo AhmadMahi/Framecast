@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { AppWindowIcon, Check, MonitorIcon } from "@/components/ui/icons";
-import { Switch } from "@/components/ui/switch";
+import {
+	AppWindowIcon,
+	ArrowClockwiseIcon,
+	CaretDown,
+	Check,
+	MagicWand,
+	MicrophoneIcon,
+	MonitorIcon,
+	SpeakerHighIcon,
+} from "@/components/ui/icons";
 import { useScopedT } from "@/contexts/I18nContext";
 import { useMicrophoneDevices } from "@/hooks/useMicrophoneDevices";
 import styles from "./ShareWindow.module.css";
@@ -40,6 +48,35 @@ function mostCommon(values: string[]): string | undefined {
 	return best;
 }
 
+function fetchSources() {
+	return window.electronAPI.getSources({
+		types: ["screen", "window"],
+		thumbnailSize: { width: 352, height: 220 },
+		fetchWindowIcons: true,
+	});
+}
+
+/** Restores whatever was chosen last, falling back to the primary screen. */
+function initialSelection(sources: ProcessedDesktopSource[], currentId: string): Selection {
+	const screens = sources.filter((s) => s.id.startsWith("screen:"));
+	if (currentId.startsWith("screen:") && screens.some((s) => s.id === currentId)) {
+		return { kind: "screen", id: currentId };
+	}
+	if (currentId.startsWith("window:") && sources.some((s) => s.id === currentId)) {
+		return { kind: "windows", ids: [currentId] };
+	}
+	if (currentId.startsWith("windows:")) {
+		const wanted = new Set(currentId.slice("windows:".length).split(","));
+		const ids = sources
+			.filter((s) => s.id.startsWith("window:"))
+			.filter((s) => wanted.has(String(windowNumber(s.id))))
+			.map((s) => s.id);
+		if (ids.length > 0) return { kind: "windows", ids };
+	}
+	const primary = screens.find((s) => s.name.includes("Primary")) ?? screens[0];
+	return primary ? { kind: "screen", id: primary.id } : null;
+}
+
 /**
  * Zoom-style chooser shown from the menu bar and the HUD's screen button. One
  * screen, or any number of windows (full-screen apps included), plus the audio
@@ -50,6 +87,8 @@ export function ShareWindow() {
 	const intent = useMemo(readIntent, []);
 	const [sources, setSources] = useState<ProcessedDesktopSource[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
+	const [windowsBlocked, setWindowsBlocked] = useState(false);
 	const [selection, setSelection] = useState<Selection>(null);
 	const [micChoice, setMicChoice] = useState<string>("off");
 	const [savedMicId, setSavedMicId] = useState<string | undefined>();
@@ -68,14 +107,36 @@ export function ShareWindow() {
 		[sources],
 	);
 
+	/**
+	 * An empty window list on macOS almost always means this copy of Framecast
+	 * has no Screen & System Audio Recording permission yet. Say so plainly
+	 * instead of claiming there are no windows.
+	 */
+	const checkWindowsBlocked = useCallback(async (list: ProcessedDesktopSource[]) => {
+		if (list.some((source) => source.id.startsWith("window:"))) {
+			setWindowsBlocked(false);
+			return;
+		}
+		try {
+			const [platform, permission, health] = await Promise.all([
+				window.electronAPI.getPlatform(),
+				window.electronAPI.getScreenRecordingPermissionStatus?.(),
+				window.electronAPI.getWindowListHealth?.(),
+			]);
+			setWindowsBlocked(
+				platform === "darwin" &&
+					(Boolean(health?.error) ||
+						(permission?.success === true && permission.status !== "granted")),
+			);
+		} catch {
+			setWindowsBlocked(false);
+		}
+	}, []);
+
 	useEffect(() => {
 		let active = true;
 		void Promise.all([
-			window.electronAPI.getSources({
-				types: ["screen", "window"],
-				thumbnailSize: { width: 352, height: 220 },
-				fetchWindowIcons: true,
-			}),
+			fetchSources(),
 			window.electronAPI.getSelectedSource(),
 			window.electronAPI.getRecordingPreferences(),
 			window.electronAPI.getMicrophoneEnhancement(),
@@ -83,26 +144,8 @@ export function ShareWindow() {
 			.then(([rawSources, current, prefs, enhancement]) => {
 				if (!active) return;
 				setSources(rawSources);
-
-				// Start from what is already selected, falling back to the primary screen.
-				const screenList = rawSources.filter((s) => s.id.startsWith("screen:"));
-				const currentId = current?.id ?? "";
-				if (currentId.startsWith("screen:") && screenList.some((s) => s.id === currentId)) {
-					setSelection({ kind: "screen", id: currentId });
-				} else if (currentId.startsWith("window:")) {
-					setSelection({ kind: "windows", ids: [currentId] });
-				} else if (currentId.startsWith("windows:")) {
-					const wanted = new Set(currentId.slice("windows:".length).split(","));
-					const ids = rawSources
-						.filter((s) => s.id.startsWith("window:"))
-						.filter((s) => wanted.has(String(windowNumber(s.id))))
-						.map((s) => s.id);
-					setSelection(ids.length > 0 ? { kind: "windows", ids } : null);
-				} else {
-					const primary =
-						screenList.find((s) => s.name.includes("Primary")) ?? screenList[0];
-					setSelection(primary ? { kind: "screen", id: primary.id } : null);
-				}
+				setSelection(initialSelection(rawSources, current?.id ?? ""));
+				void checkWindowsBlocked(rawSources);
 
 				if (prefs?.success) {
 					setSavedMicId(prefs.microphoneDeviceId);
@@ -126,7 +169,31 @@ export function ShareWindow() {
 		return () => {
 			active = false;
 		};
-	}, []);
+	}, [checkWindowsBlocked]);
+
+	const refresh = useCallback(async () => {
+		setRefreshing(true);
+		try {
+			const rawSources = await fetchSources();
+			setSources(rawSources);
+			void checkWindowsBlocked(rawSources);
+			// Keep the selection, minus anything that has since closed.
+			setSelection((current) => {
+				if (!current) return initialSelection(rawSources, "");
+				if (current.kind === "screen") {
+					return rawSources.some((s) => s.id === current.id)
+						? current
+						: initialSelection(rawSources, "");
+				}
+				const ids = current.ids.filter((id) => rawSources.some((s) => s.id === id));
+				return ids.length > 0 ? { kind: "windows", ids } : initialSelection(rawSources, "");
+			});
+		} catch (error) {
+			console.error("Failed to refresh sources:", error);
+		} finally {
+			setRefreshing(false);
+		}
+	}, [checkWindowsBlocked]);
 
 	// If the saved microphone is gone, fall back to the first available one.
 	useEffect(() => {
@@ -237,6 +304,14 @@ export function ShareWindow() {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, [cancel, confirm]);
 
+	const micLabel =
+		micChoice === "off"
+			? t("share.noMicrophone", "No microphone")
+			: (microphones.find((device) => device.deviceId === micChoice)?.label ??
+				t("share.microphone", "Microphone"));
+	const noiseLabel = (choice: NoiseChoice) =>
+		t(`share.noise_${choice}`, choice.charAt(0).toUpperCase() + choice.slice(1));
+
 	const renderTile = (source: ProcessedDesktopSource, selected: boolean, onClick: () => void) => {
 		const isScreen = source.id.startsWith("screen:");
 		const title = isScreen ? source.name : source.windowTitle || source.name;
@@ -294,13 +369,28 @@ export function ShareWindow() {
 	return (
 		<div className={`${styles.window} launch-theme`}>
 			<header className={styles.header}>
-				<h1 className={styles.title}>{t("share.title", "Choose what to record")}</h1>
-				<p className={styles.subtitle}>
-					{t(
-						"share.subtitle",
-						"Pick one screen, or tick several windows. Full-screen apps are listed too.",
-					)}
-				</p>
+				<div className={styles.headerText}>
+					<h1 className={styles.title}>{t("share.title", "Choose what to record")}</h1>
+					<p className={styles.subtitle}>
+						{t(
+							"share.subtitle",
+							"Pick one screen, or tick several windows. Full-screen apps are listed too.",
+						)}
+					</p>
+				</div>
+				<span className={styles.summary}>{summary}</span>
+				<button
+					type="button"
+					className={styles.refresh}
+					onClick={() => void refresh()}
+					disabled={loading || refreshing}
+				>
+					<ArrowClockwiseIcon
+						size={14}
+						className={refreshing ? styles.refreshSpinning : undefined}
+					/>
+					{t("share.refresh", "Refresh")}
+				</button>
 			</header>
 
 			<main className={styles.body}>
@@ -320,9 +410,37 @@ export function ShareWindow() {
 						</div>
 
 						<h2 className={styles.sectionLabel}>{t("share.windows", "Windows")}</h2>
-						{windows.length === 0 ? (
+						{windowsBlocked ? (
+							<div className={styles.notice} role="alert">
+								<div className={styles.noticeText}>
+									<strong>
+										{t(
+											"share.permissionTitle",
+											"Framecast can't see your windows yet",
+										)}
+									</strong>
+									<span>
+										{t(
+											"share.permissionBody",
+											"Turn on Framecast in System Settings › Privacy & Security › Screen & System Audio Recording, choose Quit & Reopen, then open this window again.",
+										)}
+									</span>
+								</div>
+								<Button
+									size="sm"
+									onClick={() =>
+										void window.electronAPI.openScreenRecordingPreferences?.()
+									}
+								>
+									{t("share.openSettings", "Open System Settings")}
+								</Button>
+							</div>
+						) : windows.length === 0 ? (
 							<div className={styles.empty}>
-								{t("recording.noSourcesFound", "No sources found")}
+								{t(
+									"share.noWindows",
+									"No open windows found. Open an app, then press Refresh.",
+								)}
 							</div>
 						) : (
 							<div className={styles.grid}>
@@ -341,11 +459,19 @@ export function ShareWindow() {
 			</main>
 
 			<footer className={styles.footer}>
-				<div className={styles.audio}>
-					<label className={styles.field}>
-						{t("share.microphone", "Microphone")}
+				<div className={styles.controls}>
+					<label className={styles.control}>
+						<MicrophoneIcon size={17} className={styles.controlIcon} />
+						<span className={styles.controlText}>
+							<span className={styles.controlLabel}>
+								{t("share.microphone", "Microphone")}
+							</span>
+							<span className={styles.controlValue}>{micLabel}</span>
+						</span>
+						<CaretDown size={12} className={styles.controlCaret} />
 						<select
-							className={styles.select}
+							className={styles.controlSelect}
+							aria-label={t("share.microphone", "Microphone")}
 							value={micChoice}
 							onChange={(event) => setMicChoice(event.target.value)}
 						>
@@ -357,33 +483,60 @@ export function ShareWindow() {
 							))}
 						</select>
 					</label>
-					{/* The switch renders its own label; passing the text as its children
-					    makes the words clickable too, without nesting labels. */}
-					<div className={styles.field}>
-						<Switch checked={systemAudio} onCheckedChange={setSystemAudio}>
-							<span className={styles.fieldText}>
+
+					<button
+						type="button"
+						role="switch"
+						aria-checked={systemAudio}
+						className={`${styles.control} ${systemAudio ? styles.controlOn : ""}`}
+						onClick={() => setSystemAudio((value) => !value)}
+					>
+						<SpeakerHighIcon size={17} className={styles.controlIcon} />
+						<span className={styles.controlText}>
+							<span className={styles.controlLabel}>
 								{t("share.systemAudio", "System audio")}
 							</span>
-						</Switch>
-					</div>
-					<label className={styles.field}>
-						{t("share.noise", "Noise cancellation")}
+							<span className={styles.controlValue}>
+								{systemAudio ? t("share.on", "On") : t("share.off", "Off")}
+							</span>
+						</span>
+						<span className={styles.toggle} aria-hidden="true">
+							<span className={styles.toggleKnob} />
+						</span>
+					</button>
+
+					<label
+						className={`${styles.control} ${micChoice === "off" ? styles.controlDisabled : ""}`}
+					>
+						<MagicWand size={17} className={styles.controlIcon} />
+						<span className={styles.controlText}>
+							<span className={styles.controlLabel}>
+								{t("share.noise", "Noise cancellation")}
+							</span>
+							<span className={styles.controlValue}>
+								{micChoice === "off"
+									? t("share.needsMic", "Needs a microphone")
+									: noiseLabel(noise)}
+							</span>
+						</span>
+						<CaretDown size={12} className={styles.controlCaret} />
 						<select
-							className={styles.select}
+							className={styles.controlSelect}
+							aria-label={t("share.noise", "Noise cancellation")}
 							value={noise}
 							disabled={micChoice === "off"}
 							onChange={(event) => setNoise(event.target.value as NoiseChoice)}
 						>
 							{NOISE_CHOICES.map((choice) => (
 								<option key={choice} value={choice}>
-									{t(`share.noise_${choice}`, choice)}
+									{noiseLabel(choice)}
 								</option>
 							))}
 						</select>
 					</label>
 				</div>
+
 				<div className={styles.actions}>
-					<span className={styles.summary}>{summary}</span>
 					<Button variant="secondary" size="sm" onClick={cancel} disabled={busy}>
 						{t("share.cancel", "Cancel")}
 					</Button>

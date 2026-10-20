@@ -58,7 +58,18 @@
 			"upToDateTitle": "Recordly {{version}} 已是最新版本。",
 			"availableTitle": "Recordly {{version}} 已推出新版本。",
 			"availableGenericTitle": "有可用更新。"
-		}
+		},
+		"pauseRecording": "暫停錄製",
+		"resumeRecording": "繼續錄製",
+		"camera": "相機",
+		"turnOnCamera": "開啟相機",
+		"turnOffCamera": "關閉相機",
+		"checkForUpdates": "檢查更新",
+		"openSettings": "開啟設定",
+		"startRecording": "開始錄製",
+		"stopRecording": "停止錄製",
+		"on": "開",
+		"off": "關"
 	},
 	"sourceSelector": {
 		"loadingSources": "正在載入來源...",
@@ -118,6 +129,14 @@
 		"noise_studio": "錄音室",
 		"cancel": "取消",
 		"select": "選取",
-		"startRecording": "開始錄製"
+		"startRecording": "開始錄製",
+		"refresh": "重新整理",
+		"permissionTitle": "Framecast 還無法看到你的視窗",
+		"permissionBody": "請在「系統設定 › 隱私權與安全性 › 螢幕與系統音訊錄製」中開啟 Framecast，選擇「結束並重新開啟」，然後再次開啟此視窗。",
+		"openSettings": "開啟系統設定",
+		"noWindows": "沒有開啟的視窗。請開啟一個 App，然後點一下「重新整理」。",
+		"on": "開",
+		"off": "關",
+		"needsMic": "需要麥克風"
 	}
 }

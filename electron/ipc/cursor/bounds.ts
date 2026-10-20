@@ -19,6 +19,17 @@ import { resolveWindowsWindowBounds } from "../windowsWindowControl";
 
 const execFileAsync = promisify(execFile);
 
+let lastNativeWindowListError: string | null = null;
+
+/**
+ * Why the last native window listing failed, or null if it succeeded. The
+ * usual cause is missing Screen & System Audio Recording permission, which
+ * an unsigned build loses every time it is reinstalled.
+ */
+export function getLastNativeWindowListError() {
+	return lastNativeWindowListError;
+}
+
 export async function getNativeMacWindowSources(options?: { maxAgeMs?: number }) {
 	if (process.platform !== "darwin") {
 		return [] as NativeMacWindowSource[];
@@ -53,8 +64,13 @@ export async function getNativeMacWindowSources(options?: { maxAgeMs?: number })
 
 		setCachedNativeMacWindowSources(entries);
 		setCachedNativeMacWindowSourcesAtMs(now);
+		lastNativeWindowListError = null;
 		return entries;
-	} catch {
+	} catch (error) {
+		const details = error as { stderr?: string; message?: string };
+		lastNativeWindowListError =
+			(details.stderr || details.message || String(error)).trim() || "unknown error";
+		console.warn("[window-list] Native window listing failed:", lastNativeWindowListError);
 		return cachedNativeMacWindowSources ?? ([] as NativeMacWindowSource[]);
 	}
 }

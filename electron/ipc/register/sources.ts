@@ -11,6 +11,7 @@ import {
 } from "../../windows";
 import { ALLOW_RECORDLY_WINDOW_CAPTURE } from "../constants";
 import {
+	getLastNativeWindowListError,
 	getNativeMacWindowSources,
 	resolveLinuxWindowBounds,
 	resolveMacWindowBounds,
@@ -311,6 +312,11 @@ export function registerSourceHandlers({
 
 		try {
 			const nativeWindowSources = await getNativeMacWindowSources();
+			if (nativeWindowSources.length === 0) {
+				// An empty native list means the helper failed (usually missing
+				// permission). Fall through to Electron's own window enumeration.
+				throw new Error(getLastNativeWindowListError() ?? "Native window list is empty");
+			}
 			const electronWindowSourceMap = new Map(
 				electronSources
 					.filter((source) => source.id.startsWith("window:"))
@@ -640,6 +646,10 @@ body{background:transparent;overflow:hidden;width:100vw;height:100vh}
 			return { success: false };
 		}
 	});
+
+	ipcMain.handle("get-window-list-health", () => ({
+		error: process.platform === "darwin" ? getLastNativeWindowListError() : null,
+	}));
 
 	ipcMain.handle("get-selected-source", () => {
 		return selectedSource;

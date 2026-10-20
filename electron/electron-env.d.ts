@@ -264,6 +264,18 @@ interface Window {
 			enabled: boolean;
 		}>;
 		openUpdateDownloadPage: () => Promise<void>;
+		hideMenuBarPanel: () => void;
+		resizeMenuBarPanel: (height: number) => void;
+		startRecordingFromMenuBar: () => Promise<{ success: boolean }>;
+		stopRecordingFromMenuBar: () => Promise<{ success: boolean }>;
+		pauseRecordingFromMenuBar: () => Promise<{ success: boolean }>;
+		resumeRecordingFromMenuBar: () => Promise<{ success: boolean }>;
+		openSettingsFromMenuBar: () => Promise<{ success: boolean }>;
+		checkForAppUpdatesFromMenuBar: () => Promise<{ success: boolean }>;
+		onRecordingPausedChanged: (callback: (state: { paused: boolean }) => void) => () => void;
+		onPauseRecordingFromTray: (callback: () => void) => () => void;
+		onResumeRecordingFromTray: (callback: () => void) => () => void;
+		getWindowListHealth: () => Promise<{ error: string | null }>;
 		openShareWindow: (intent: "record" | "select") => Promise<{ success: boolean }>;
 		cancelShareWindow: () => Promise<{ success: boolean }>;
 		completeShareWindow: (choices: RecordingChoices) => Promise<{ success: boolean }>;

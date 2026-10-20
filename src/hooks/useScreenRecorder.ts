@@ -1265,6 +1265,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, []);
 
 	const startRecordingFromTray = useRef<() => void>(() => undefined);
+	const pauseRecordingFromTray = useRef<() => void>(() => undefined);
+	const resumeRecordingFromTray = useRef<() => void>(() => undefined);
 	const pendingShareStart = useRef(false);
 	const [shareStartRequest, setShareStartRequest] = useState(0);
 
@@ -1592,6 +1594,12 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				setShareStartRequest((request) => request + 1);
 			}
 		});
+		const removePauseListener = window.electronAPI?.onPauseRecordingFromTray?.(() => {
+			pauseRecordingFromTray.current();
+		});
+		const removeResumeListener = window.electronAPI?.onResumeRecordingFromTray?.(() => {
+			resumeRecordingFromTray.current();
+		});
 
 		const removeRecordingStateListener = window.electronAPI?.onRecordingStateChanged?.(
 			(state) => {
@@ -1640,6 +1648,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			recordingStartGeneration.current += 1;
 			cleanup?.();
 			removeStartListener?.();
+			removePauseListener?.();
+			removeResumeListener?.();
 			removeRecordingStateListener?.();
 			removeRecordingInterruptedListener?.();
 
@@ -2462,6 +2472,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		startRecording();
 	};
+
+	pauseRecordingFromTray.current = pauseRecording;
+	resumeRecordingFromTray.current = resumeRecording;
 
 	// Runs after the render that applied the Share window's choices, so the
 	// recording starts with the microphone and audio the user just picked.

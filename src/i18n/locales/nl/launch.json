@@ -58,7 +58,18 @@
 			"upToDateTitle": "Recordly {{version}} is up-to-date.",
 			"availableTitle": "Recordly {{version}} is beschikbaar.",
 			"availableGenericTitle": "Er is een update beschikbaar."
-		}
+		},
+		"pauseRecording": "Opname pauzeren",
+		"resumeRecording": "Opname hervatten",
+		"camera": "Camera",
+		"turnOnCamera": "Camera inschakelen",
+		"turnOffCamera": "Camera uitschakelen",
+		"checkForUpdates": "Controleren op updates",
+		"openSettings": "Instellingen openen",
+		"startRecording": "Opname starten",
+		"stopRecording": "Opname stoppen",
+		"on": "Aan",
+		"off": "Uit"
 	},
 	"sourceSelector": {
 		"loadingSources": "Bronnen laden...",
@@ -118,6 +129,14 @@
 		"noise_studio": "Studio",
 		"cancel": "Annuleren",
 		"select": "Selecteren",
-		"startRecording": "Opname starten"
+		"startRecording": "Opname starten",
+		"refresh": "Vernieuw",
+		"permissionTitle": "Framecast kan je vensters nog niet zien",
+		"permissionBody": "Zet Framecast aan in Systeeminstellingen › Privacy en beveiliging › Scherm- en systeemaudio-opname, kies Stop en open opnieuw en open dit venster daarna opnieuw.",
+		"openSettings": "Open Systeeminstellingen",
+		"noWindows": "Geen open vensters. Open een app en klik op Vernieuw.",
+		"on": "Aan",
+		"off": "Uit",
+		"needsMic": "Microfoon nodig"
 	}
 }

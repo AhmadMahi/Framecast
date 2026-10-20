@@ -28,11 +28,6 @@ import {
 	killWindowsCaptureProcess,
 	registerIpcHandlers,
 } from "./ipc/handlers";
-import {
-	cancelPendingPick,
-	hasParkedPickerSelection,
-	pickNativeCaptureSource,
-} from "./ipc/register/recording";
 import { ensureMediaServer } from "./mediaServer";
 import { hardenWebContentsNavigation, shouldHardenWebContentsType } from "./navigationPolicy";
 import { shouldGrantDisplayCapture, shouldGrantMediaPermission } from "./permissionPolicy";
@@ -58,13 +53,11 @@ import {
 	createEditorWindow,
 	createHudOverlayWindow,
 	createSourceSelectorWindow,
-	destroyMenuBarPanelWindow,
+	closeShareWindow,
+	getShareWindow,
+	openShareWindow,
+	whenHudRendererReady,
 	getHudOverlayWindow,
-	prewarmMenuBarPanelWindow,
-	hideMenuBarPanelWindow,
-	isMenuBarPanelVisible,
-	resizeMenuBarPanelWindow,
-	showMenuBarPanelWindow,
 	getUpdateToastWindow,
 	hideUpdateToastWindow,
 	isHudOverlayMousePassthroughSupported,
@@ -173,6 +166,11 @@ function getTrustedCaptureDocumentBaseUrls(): string[] {
 	}
 
 	return trustedUrls;
+}
+
+function isShareWindowWebContents(webContents: Electron.WebContents | null): boolean {
+	const share = getShareWindow();
+	return Boolean(webContents && !webContents.isDestroyed() && share?.webContents === webContents);
 }
 
 function isHudWebContents(webContents: Electron.WebContents | null): boolean {
@@ -305,7 +303,8 @@ function isMenuBarIconEnabled() {
 	if (!menuBarIconSettingLoaded) {
 		menuBarIconSettingLoaded = true;
 		try {
-			menuBarIconEnabled = readAppSetting(MENU_BAR_ICON_SETTING_KEY) === true;
+			// On by default: the menu bar is Framecast's main entry point on macOS.
+			menuBarIconEnabled = readAppSetting(MENU_BAR_ICON_SETTING_KEY) !== false;
 		} catch {
 			menuBarIconEnabled = false;
 		}
@@ -324,28 +323,6 @@ function destroyTray() {
 	tray.destroy();
 	tray = null;
 	trayContextMenu = null;
-}
-
-/**
- * Opens the menu bar panel under the icon that was clicked. The panel is its
- * own translucent popover, so clicking the menu bar never pulls the user back
- * to Recordly's home window or away from the app they are working in.
- */
-function toggleMenuBarPanel() {
-	if (!tray) {
-		return;
-	}
-
-	if (isMenuBarPanelVisible()) {
-		hideMenuBarPanelWindow();
-		return;
-	}
-
-	const trayBounds = tray.getBounds();
-	showMenuBarPanelWindow({
-		x: trayBounds.x + trayBounds.width / 2,
-		y: trayBounds.y + trayBounds.height,
-	});
 }
 
 function showHudOverlayFromTray() {
@@ -616,25 +593,20 @@ function isPrimaryTrayClick(event: unknown) {
 function createTray() {
 	tray = new Tray(getDefaultTrayIcon());
 	console.log(`[main] Tray created (platform: ${process.platform})`);
+	// On macOS the native menu set in updateTrayMenu opens on click by itself.
 	if (process.platform === "darwin") {
-		prewarmMenuBarPanelWindow();
+		return;
 	}
+
 	tray.on("click", (event) => {
 		if (process.platform === "win32" && !isPrimaryTrayClick(event)) {
-			return;
-		}
-
-		// On macOS the menu bar icon opens its own popover panel, and a second
-		// click puts it away again.
-		if (process.platform === "darwin") {
-			toggleMenuBarPanel();
 			return;
 		}
 
 		focusOrCreateMainWindow();
 	});
 
-	if (process.platform === "win32" || process.platform === "darwin") {
+	if (process.platform === "win32") {
 		tray.on("right-click", () => {
 			if (!tray || !trayContextMenu) {
 				return;
@@ -675,7 +647,6 @@ function setMenuBarIconEnabled(enabled: boolean) {
 		updateTrayMenu(trayRecordingActive);
 	} else {
 		destroyTray();
-		destroyMenuBarPanelWindow();
 	}
 
 	return menuBarIconEnabled;
@@ -824,86 +795,20 @@ ipcMain.handle("preview-update-toast", async () => {
 	return { success: previewUpdateToast(sendUpdateToastToWindows) };
 });
 
-ipcMain.on("menu-bar-panel:hide", () => {
-	hideMenuBarPanelWindow();
-});
-
-ipcMain.on("menu-bar-panel:resize", (_event, height: number) => {
-	resizeMenuBarPanelWindow(height);
-});
-
-/**
- * The HUD renderer owns the capture pipeline, so the panel asks it to start
- * rather than running a second recorder of its own.
- */
-ipcMain.handle("menu-bar-panel:start-recording", async () => {
-	hideMenuBarPanelWindow();
-
-	// Like Zoom: choose what to record in Apple's picker, then record it.
-	if (process.platform === "darwin" && !hasParkedPickerSelection()) {
-		const pick = await pickNativeCaptureSource();
-		if (!pick.success || pick.cancelled) {
-			return { success: false, cancelled: true };
-		}
-	}
-
-	let hud = getHudOverlayWindow();
-	if (!hud || hud.isDestroyed()) {
-		createWindow();
-		hud = getHudOverlayWindow();
-	}
-
-	if (!hud || hud.isDestroyed()) {
-		return { success: false };
-	}
-
-	showHudOverlayFromTray();
-
-	if (hud.webContents.isLoading()) {
-		await new Promise<void>((resolve) => {
-			hud.webContents.once("did-finish-load", () => resolve());
-		});
-	}
-
-	hud.webContents.send("start-recording-from-tray");
-	return { success: true };
-});
-
-ipcMain.handle("menu-bar-panel:stop-recording", () => {
-	hideMenuBarPanelWindow();
+function sendToHud(channel: string, payload?: unknown) {
 	const hud = getHudOverlayWindow();
 	if (hud && !hud.isDestroyed()) {
-		hud.webContents.send("stop-recording-from-tray");
-		return { success: true };
+		hud.webContents.send(channel, payload);
+		return true;
 	}
-
-	return { success: false };
-});
-
-ipcMain.handle("menu-bar-panel:open-projects", () => {
-	hideMenuBarPanelWindow();
-	createEditorWindowWrapper();
-	return { success: true };
-});
-
-function relayToHud(channel: "pause-recording-from-tray" | "resume-recording-from-tray") {
-	hideMenuBarPanelWindow();
-	const hud = getHudOverlayWindow();
-	if (hud && !hud.isDestroyed()) {
-		hud.webContents.send(channel);
-		return { success: true };
-	}
-	return { success: false };
+	return false;
 }
 
-ipcMain.handle("menu-bar-panel:pause-recording", () => relayToHud("pause-recording-from-tray"));
-ipcMain.handle("menu-bar-panel:resume-recording", () => relayToHud("resume-recording-from-tray"));
-
-ipcMain.handle("menu-bar-panel:open-settings", () => {
-	hideMenuBarPanelWindow();
+/** Opens the full studio on its Settings section. */
+function openSettingsInStudio() {
 	const editor = createEditorWindowWrapper();
 	if (!editor || editor.isDestroyed()) {
-		return { success: false };
+		return;
 	}
 
 	// The dashboard mounts lazily, so repeat the request a few times; the
@@ -916,13 +821,40 @@ ipcMain.handle("menu-bar-panel:open-settings", () => {
 	for (const delay of [0, 400, 1200, 2500]) {
 		setTimeout(send, delay);
 	}
+}
+
+type RecordingChoices = {
+	start: boolean;
+	microphoneEnabled: boolean;
+	microphoneDeviceId?: string;
+	systemAudioEnabled: boolean;
+};
+
+ipcMain.handle("share-window:open", (_event, intent: "record" | "select") => {
+	openShareWindow(intent === "select" ? "select" : "record");
 	return { success: true };
 });
 
-ipcMain.handle("menu-bar-panel:check-updates", async () => {
-	hideMenuBarPanelWindow();
-	await checkForAppUpdates(getUpdateDialogWindow, { manual: true });
+ipcMain.handle("share-window:cancel", () => {
+	closeShareWindow();
 	return { success: true };
+});
+
+/**
+ * The Share window has saved the source and preferences; hand the choices to
+ * the HUD, which owns the capture pipeline, and start if that was the intent.
+ */
+ipcMain.handle("share-window:complete", async (_event, choices: RecordingChoices) => {
+	closeShareWindow();
+
+	if (!getHudOverlayWindow()) {
+		createWindow();
+	}
+	if (choices.start) {
+		showHudOverlayFromTray();
+	}
+	await whenHudRendererReady();
+	return { success: sendToHud("apply-recording-choices", choices) };
 });
 
 ipcMain.handle("open-update-download-page", async () => {
@@ -954,6 +886,48 @@ ipcMain.handle("check-for-app-updates", async () => {
 	await checkForAppUpdates(getUpdateDialogWindow, { manual: true });
 	return { success: true, logPath: getUpdaterLogPath() };
 });
+
+/**
+ * A real macOS menu: it costs nothing until opened and looks native. Start
+ * opens the Share window; everything else lives in the studio.
+ */
+function buildMacMenuBarMenu(recording: boolean) {
+	return Menu.buildFromTemplate([
+		recording
+			? {
+					label: "Stop Recording",
+					click: () => {
+						sendToHud("stop-recording-from-tray");
+					},
+				}
+			: {
+					label: "Start Recording…",
+					click: () => {
+						openShareWindow("record");
+					},
+				},
+		{ type: "separator" },
+		{
+			label: "Open Settings…",
+			click: () => {
+				openSettingsInStudio();
+			},
+		},
+		{
+			label: "Check for Updates…",
+			click: () => {
+				void checkForAppUpdates(getUpdateDialogWindow, { manual: true });
+			},
+		},
+		{ type: "separator" },
+		{
+			label: "Quit Framecast",
+			click: () => {
+				app.quit();
+			},
+		},
+	]);
+}
 
 function updateTrayMenu(recording: boolean = false) {
 	trayRecordingActive = recording;
@@ -995,20 +969,14 @@ function updateTrayMenu(recording: boolean = false) {
 					},
 				},
 			];
-	if (process.platform === "darwin" && !recording) {
-		menuTemplate.splice(1, 0, {
-			label: "Open Projects",
-			click: () => {
-				createEditorWindowWrapper();
-			},
-		});
-	}
-
-	const menu = Menu.buildFromTemplate(menuTemplate);
+	const menu =
+		process.platform === "darwin"
+			? buildMacMenuBarMenu(recording)
+			: Menu.buildFromTemplate(menuTemplate);
 	trayContextMenu = menu;
 	tray.setImage(trayIcon);
 	tray.setToolTip(trayToolTip);
-	if (process.platform !== "win32" && process.platform !== "darwin") {
+	if (process.platform !== "win32") {
 		tray.setContextMenu(menu);
 	}
 }
@@ -1127,7 +1095,6 @@ function createSourceSelectorWindowWrapper() {
 // On macOS, applications and their menu bar stay active until the user quits
 // explicitly with Cmd + Q.
 app.on("before-quit", () => {
-	cancelPendingPick();
 	isAppQuitting = true;
 	authCallbacks.close();
 	void clearRecordingTrashUndo().catch((error) =>
@@ -1179,7 +1146,8 @@ app.whenReady().then(async () => {
 			return shouldGrantMediaPermission(
 				{
 					permission,
-					isTrustedCaptureWindow: isHudWebContents(webContents),
+					isTrustedCaptureWindow:
+						isHudWebContents(webContents) || isShareWindowWebContents(webContents),
 					isMainFrame: details.isMainFrame,
 					currentDocumentUrl: webContents?.getURL() ?? "",
 					// Electron 39 may supply the last committed document URL, including its
@@ -1201,7 +1169,8 @@ app.whenReady().then(async () => {
 				shouldGrantMediaPermission(
 					{
 						permission,
-						isTrustedCaptureWindow: isHudWebContents(webContents),
+						isTrustedCaptureWindow:
+							isHudWebContents(webContents) || isShareWindowWebContents(webContents),
 						isMainFrame: details.isMainFrame,
 						currentDocumentUrl: webContents.getURL(),
 						requestingUrl: details.requestingUrl,

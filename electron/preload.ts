@@ -238,61 +238,47 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	setMenuBarIcon: (enabled: boolean) => {
 		return ipcRenderer.invoke("set-menu-bar-icon", enabled);
 	},
-	hideMenuBarPanel: () => {
-		ipcRenderer.send("menu-bar-panel:hide");
-	},
-	resizeMenuBarPanel: (height: number) => {
-		ipcRenderer.send("menu-bar-panel:resize", height);
-	},
-	startRecordingFromMenuBar: () => {
-		return ipcRenderer.invoke("menu-bar-panel:start-recording");
-	},
-	pauseRecordingFromMenuBar: () => {
-		return ipcRenderer.invoke("menu-bar-panel:pause-recording");
-	},
-	resumeRecordingFromMenuBar: () => {
-		return ipcRenderer.invoke("menu-bar-panel:resume-recording");
-	},
-	openSettingsFromMenuBar: () => {
-		return ipcRenderer.invoke("menu-bar-panel:open-settings");
-	},
-	checkForAppUpdatesFromMenuBar: () => {
-		return ipcRenderer.invoke("menu-bar-panel:check-updates");
-	},
 	openUpdateDownloadPage: () => {
 		return ipcRenderer.invoke("open-update-download-page");
 	},
-	pickCaptureSource: () => {
-		return ipcRenderer.invoke("pick-native-capture-source");
+	openShareWindow: (intent: "record" | "select") => {
+		return ipcRenderer.invoke("share-window:open", intent);
 	},
-	cancelCaptureSourcePick: () => {
-		return ipcRenderer.invoke("cancel-native-capture-pick");
+	cancelShareWindow: () => {
+		return ipcRenderer.invoke("share-window:cancel");
 	},
-	onRecordingPausedChanged: (callback: (state: { paused: boolean }) => void) => {
-		const listener = (_event: unknown, state: { paused: boolean }) => callback(state);
-		ipcRenderer.on("recording-paused-changed", listener);
-		return () => ipcRenderer.removeListener("recording-paused-changed", listener);
+	completeShareWindow: (choices: {
+		start: boolean;
+		microphoneEnabled: boolean;
+		microphoneDeviceId?: string;
+		systemAudioEnabled: boolean;
+	}) => {
+		return ipcRenderer.invoke("share-window:complete", choices);
 	},
-	onPauseRecordingFromTray: (callback: () => void) => {
-		const listener = () => callback();
-		ipcRenderer.on("pause-recording-from-tray", listener);
-		return () => ipcRenderer.removeListener("pause-recording-from-tray", listener);
-	},
-	onResumeRecordingFromTray: (callback: () => void) => {
-		const listener = () => callback();
-		ipcRenderer.on("resume-recording-from-tray", listener);
-		return () => ipcRenderer.removeListener("resume-recording-from-tray", listener);
+	onApplyRecordingChoices: (
+		callback: (choices: {
+			start: boolean;
+			microphoneEnabled: boolean;
+			microphoneDeviceId?: string;
+			systemAudioEnabled: boolean;
+		}) => void,
+	) => {
+		const listener = (
+			_event: unknown,
+			choices: {
+				start: boolean;
+				microphoneEnabled: boolean;
+				microphoneDeviceId?: string;
+				systemAudioEnabled: boolean;
+			},
+		) => callback(choices);
+		ipcRenderer.on("apply-recording-choices", listener);
+		return () => ipcRenderer.removeListener("apply-recording-choices", listener);
 	},
 	onOpenDashboardSection: (callback: (section: string) => void) => {
 		const listener = (_event: unknown, section: string) => callback(section);
 		ipcRenderer.on("open-dashboard-section", listener);
 		return () => ipcRenderer.removeListener("open-dashboard-section", listener);
-	},
-	stopRecordingFromMenuBar: () => {
-		return ipcRenderer.invoke("menu-bar-panel:stop-recording");
-	},
-	openProjectsFromMenuBar: () => {
-		return ipcRenderer.invoke("menu-bar-panel:open-projects");
 	},
 	getAssetBasePath: async () => {
 		return await ipcRenderer.invoke("get-asset-base-path");
@@ -703,11 +689,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	getSystemCursorAssets: () => {
 		return ipcRenderer.invoke("get-system-cursor-assets");
-	},
-	onStartRecordingFromTray: (callback: () => void) => {
-		const listener = () => callback();
-		ipcRenderer.on("start-recording-from-tray", listener);
-		return () => ipcRenderer.removeListener("start-recording-from-tray", listener);
 	},
 	onStopRecordingFromTray: (callback: () => void) => {
 		const listener = () => callback();

@@ -31,21 +31,6 @@ export let nativeCaptureSystemAudioPath: string | null = null;
 export let nativeCaptureMicrophonePath: string | null = null;
 export let nativeCapturePaused = false;
 
-// ── macOS system content picker ──────────────────────────────────────────────
-/** What the user chose in Apple's picker, in screen points. */
-export interface PickerSelection {
-	style: "window" | "display" | "application" | "none" | "unknown";
-	windowCount: number;
-	scale: number;
-	x: number;
-	y: number;
-	width: number;
-	height: number;
-}
-/** Helper parked after a pick, waiting for `start`; becomes nativeCaptureProcess on record. */
-export let pendingPickerProcess: ChildProcessWithoutNullStreams | null = null;
-export let pickerSelection: PickerSelection | null = null;
-
 // ── Native cursor monitor ─────────────────────────────────────────────────────
 export let nativeCursorMonitorProcess: ChildProcessWithoutNullStreams | null = null;
 export let nativeCursorMonitorOutputBuffer = "";
@@ -160,12 +145,6 @@ export function setNativeCaptureMicrophonePath(v: string | null) {
 }
 export function setNativeCapturePaused(v: boolean) {
 	nativeCapturePaused = v;
-}
-export function setPendingPickerProcess(v: ChildProcessWithoutNullStreams | null) {
-	pendingPickerProcess = v;
-}
-export function setPickerSelection(v: PickerSelection | null) {
-	pickerSelection = v;
 }
 
 export function setNativeCursorMonitorProcess(v: ChildProcessWithoutNullStreams | null) {

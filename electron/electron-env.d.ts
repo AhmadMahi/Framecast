@@ -67,6 +67,14 @@ interface UpdateStatusSummary {
 
 type RendererRecordingSessionData = import("./ipc/types").RecordingSessionData;
 
+/** What the Share window hands the HUD before it starts a recording. */
+interface RecordingChoices {
+	start: boolean;
+	microphoneEnabled: boolean;
+	microphoneDeviceId?: string;
+	systemAudioEnabled: boolean;
+}
+
 type MicrophoneEnhancementSettings =
 	import("./ipc/recording/audioFilters").MicrophoneEnhancementSettings;
 
@@ -255,27 +263,12 @@ interface Window {
 			supported: boolean;
 			enabled: boolean;
 		}>;
-		hideMenuBarPanel: () => void;
-		resizeMenuBarPanel: (height: number) => void;
-		startRecordingFromMenuBar: () => Promise<{ success: boolean; cancelled?: boolean }>;
-		pauseRecordingFromMenuBar: () => Promise<{ success: boolean }>;
-		resumeRecordingFromMenuBar: () => Promise<{ success: boolean }>;
-		openSettingsFromMenuBar: () => Promise<{ success: boolean }>;
-		checkForAppUpdatesFromMenuBar: () => Promise<{ success: boolean }>;
 		openUpdateDownloadPage: () => Promise<void>;
-		pickCaptureSource: () => Promise<{
-			success: boolean;
-			cancelled?: boolean;
-			source?: ProcessedDesktopSource;
-			message?: string;
-		}>;
-		cancelCaptureSourcePick: () => Promise<{ success: boolean }>;
-		onRecordingPausedChanged: (callback: (state: { paused: boolean }) => void) => () => void;
-		onPauseRecordingFromTray: (callback: () => void) => () => void;
-		onResumeRecordingFromTray: (callback: () => void) => () => void;
+		openShareWindow: (intent: "record" | "select") => Promise<{ success: boolean }>;
+		cancelShareWindow: () => Promise<{ success: boolean }>;
+		completeShareWindow: (choices: RecordingChoices) => Promise<{ success: boolean }>;
+		onApplyRecordingChoices: (callback: (choices: RecordingChoices) => void) => () => void;
 		onOpenDashboardSection: (callback: (section: string) => void) => () => void;
-		stopRecordingFromMenuBar: () => Promise<{ success: boolean }>;
-		openProjectsFromMenuBar: () => Promise<{ success: boolean }>;
 		getAssetBasePath: () => Promise<string | null>;
 		getSources: (opts: Electron.SourcesOptions) => Promise<ProcessedDesktopSource[]>;
 		showProjectDashboard: () => Promise<void>;
@@ -296,7 +289,6 @@ interface Window {
 				microphoneLabel?: string;
 			},
 		) => Promise<{
-			needsPick?: boolean;
 			success: boolean;
 			path?: string;
 			message?: string;
@@ -652,7 +644,6 @@ interface Window {
 			cursors: Record<string, SystemCursorAsset>;
 			error?: string;
 		}>;
-		onStartRecordingFromTray: (callback: () => void) => () => void;
 		onStopRecordingFromTray: (callback: () => void) => () => void;
 		onRecordingStateChanged: (
 			callback: (state: { recording: boolean; sourceName: string }) => void,
@@ -1075,6 +1066,8 @@ interface ProcessedDesktopSource {
 	sourceType?: "screen" | "window";
 	appName?: string;
 	windowTitle?: string;
+	/** A full-screen app window, which lives on its own Space. */
+	isFullScreen?: boolean;
 }
 
 interface CursorTelemetryPoint {

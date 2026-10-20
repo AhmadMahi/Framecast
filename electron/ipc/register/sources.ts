@@ -2,6 +2,7 @@ import { createRecordingEditorNavigation } from "../../recordingEditorNavigation
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { app, BrowserWindow, desktopCapturer, ipcMain, systemPreferences } from "electron";
+import type { Display } from "electron";
 import {
 	setHudRecordingPreparationActive,
 	createHudOverlayWindow,
@@ -16,7 +17,7 @@ import {
 	stopWindowBoundsCapture,
 } from "../cursor/bounds";
 import { getDisplayBoundsForSource, getDisplayWorkAreaForSource } from "../recording/ffmpeg";
-import { pickerSelection, selectedSource, setSelectedSource } from "../state";
+import { selectedSource, setSelectedSource } from "../state";
 import type { SelectedSource, WindowBounds } from "../types";
 import { getScreen, parseWindowId } from "../utils";
 import { bringWindowsWindowForward, resolveWindowsWindowBounds } from "../windowsWindowControl";
@@ -29,6 +30,49 @@ let sourceListCache: {
 	expiresAt: number;
 	value: Array<Record<string, unknown>>;
 } | null = null;
+
+const appIconCache = new Map<string, string | null>();
+
+/** The app's Finder icon as a data URL, cached per bundle path. */
+async function getAppIconDataUrl(appPath: string | undefined): Promise<string | null> {
+	if (!appPath) {
+		return null;
+	}
+	if (appIconCache.has(appPath)) {
+		return appIconCache.get(appPath) ?? null;
+	}
+
+	let dataUrl: string | null = null;
+	try {
+		const icon = await app.getFileIcon(appPath, { size: "normal" });
+		dataUrl = icon.isEmpty() ? null : icon.toDataURL();
+	} catch {
+		dataUrl = null;
+	}
+	appIconCache.set(appPath, dataUrl);
+	return dataUrl;
+}
+
+/**
+ * Full-screen apps cover their whole display, menu bar included, and live on
+ * their own Space. Matching the frame to a display is the reliable signal.
+ */
+function isFullScreenFrame(
+	frame: { x?: number; y?: number; width?: number; height?: number },
+	displays: Display[],
+) {
+	const { x, y, width, height } = frame;
+	if (![x, y, width, height].every((v) => typeof v === "number" && Number.isFinite(v))) {
+		return false;
+	}
+	return displays.some(
+		(display) =>
+			Math.abs((x as number) - display.bounds.x) <= 2 &&
+			Math.abs((y as number) - display.bounds.y) <= 2 &&
+			Math.abs((width as number) - display.bounds.width) <= 2 &&
+			Math.abs((height as number) - display.bounds.height) <= 2,
+	);
+}
 
 function normalizeDesktopSourceName(value: string) {
 	return value.trim().replace(/\s+/g, " ").toLowerCase();
@@ -273,6 +317,18 @@ export function registerSourceHandlers({
 					.map((source) => [source.id, source] as const),
 			);
 
+			const allDisplays = getScreen().getAllDisplays();
+			const appIcons = includeWindowIcons
+				? new Map(
+						await Promise.all(
+							[...new Set(nativeWindowSources.map((source) => source.appPath))].map(
+								async (appPath) =>
+									[appPath, await getAppIconDataUrl(appPath)] as const,
+							),
+						),
+					)
+				: null;
+
 			const mergedWindowSources = nativeWindowSources
 				.filter((source) => {
 					const normalizedWindowName = normalizeDesktopSourceName(
@@ -323,8 +379,9 @@ export function registerSourceHandlers({
 							? (source.appIcon ??
 								(electronWindowSource?.appIcon
 									? electronWindowSource.appIcon.toDataURL()
-									: null))
+									: (appIcons?.get(source.appPath) ?? null)))
 							: null,
+						isFullScreen: isFullScreenFrame(source, allDisplays),
 						appName: source.appName,
 						windowTitle: source.windowTitle,
 						bundleId: source.bundleId,
@@ -410,14 +467,7 @@ export function registerSourceHandlers({
 			// ── 1. Resolve bounds ──
 			let bounds: { x: number; y: number; width: number; height: number } | null = null;
 
-			if (source.id?.startsWith("picker:") && pickerSelection) {
-				bounds = {
-					x: pickerSelection.x,
-					y: pickerSelection.y,
-					width: pickerSelection.width,
-					height: pickerSelection.height,
-				};
-			} else if (source.id?.startsWith("screen:")) {
+			if (source.id?.startsWith("screen:") || source.id?.startsWith("windows:")) {
 				bounds =
 					process.platform === "darwin"
 						? getDisplayWorkAreaForSource(source)

@@ -32,6 +32,7 @@ const WINDOW_ICON_PATH = path.join(
 );
 
 let hudOverlayWindow: BrowserWindow | null = null;
+let hudOverlayRendererIsReady = false;
 let hudOverlayHiddenFromCapture = true;
 let hudOverlayCaptureProtectionLoaded = false;
 let hudOverlayFallbackExpanded = false;
@@ -614,8 +615,10 @@ export function createHudOverlayWindow(): BrowserWindow {
 		}, 500);
 	});
 
+	hudOverlayRendererIsReady = false;
 	const handleHudRendererReady = () => {
 		if (!win.isDestroyed()) {
+			hudOverlayRendererIsReady = true;
 			console.log(`[PERF:MAIN] HUD Window: renderer-ready in ${Date.now() - perfStart}ms`);
 			showHudWindow();
 		}
@@ -661,6 +664,7 @@ export function createHudOverlayWindow(): BrowserWindow {
 
 	win.on("closed", () => {
 		ipcMain.removeListener("hud-overlay-renderer-ready", handleHudRendererReady);
+		hudOverlayRendererIsReady = false;
 		screen.removeListener("display-removed", handleDisplayRemoved);
 		screen.removeListener("display-metrics-changed", handleDisplayMetricsChanged);
 		if (hudOverlayWindow === win) {
@@ -1174,189 +1178,122 @@ export function closeCountdownWindow(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Menu bar panel
+// Share window (macOS)
 // ---------------------------------------------------------------------------
 
-const MENU_BAR_PANEL_WIDTH = 320;
-const MENU_BAR_PANEL_MIN_HEIGHT = 180;
-const MENU_BAR_PANEL_MAX_HEIGHT = 620;
-const MENU_BAR_PANEL_INITIAL_HEIGHT = 300;
-const MENU_BAR_PANEL_EDGE_MARGIN = 8;
+export type ShareWindowIntent = "record" | "select";
 
-let menuBarPanelWindow: BrowserWindow | null = null;
+const SHARE_WINDOW_WIDTH = 860;
+const SHARE_WINDOW_HEIGHT = 620;
 
-export function getMenuBarPanelWindow(): BrowserWindow | null {
-	return menuBarPanelWindow && !menuBarPanelWindow.isDestroyed() ? menuBarPanelWindow : null;
+let shareWindow: BrowserWindow | null = null;
+let shareWindowIntent: ShareWindowIntent | null = null;
+
+export function getShareWindow(): BrowserWindow | null {
+	return shareWindow && !shareWindow.isDestroyed() ? shareWindow : null;
 }
 
 /**
- * Clamps the panel to the display holding the menu bar icon so it never hangs
- * off the edge when the icon sits near a corner.
+ * Zoom-style chooser for screens and windows. Built only when it is needed and
+ * destroyed on close, so it costs nothing while Framecast sits idle.
  */
-function getMenuBarPanelBounds(anchor: { x: number; y: number }, height: number) {
-	const display = getScreen().getDisplayNearestPoint({
-		x: Math.round(anchor.x),
-		y: Math.round(anchor.y),
-	});
+export function openShareWindow(intent: ShareWindowIntent): BrowserWindow {
+	const existing = getShareWindow();
+	if (existing && shareWindowIntent === intent) {
+		existing.show();
+		existing.focus();
+		app.focus({ steal: true });
+		return existing;
+	}
+	existing?.destroy();
+
+	const display = getScreen().getDisplayNearestPoint(getScreen().getCursorScreenPoint());
 	const { workArea } = display;
-	const clampedHeight = Math.min(
-		Math.max(height, MENU_BAR_PANEL_MIN_HEIGHT),
-		Math.min(MENU_BAR_PANEL_MAX_HEIGHT, workArea.height - MENU_BAR_PANEL_EDGE_MARGIN * 2),
-	);
+	const width = Math.min(SHARE_WINDOW_WIDTH, workArea.width - 40);
+	const height = Math.min(SHARE_WINDOW_HEIGHT, workArea.height - 40);
 
-	const maxX = workArea.x + workArea.width - MENU_BAR_PANEL_WIDTH - MENU_BAR_PANEL_EDGE_MARGIN;
-	const minX = workArea.x + MENU_BAR_PANEL_EDGE_MARGIN;
-	const x = Math.round(
-		Math.min(Math.max(anchor.x - MENU_BAR_PANEL_WIDTH / 2, minX), Math.max(minX, maxX)),
-	);
-	const y = Math.round(Math.max(anchor.y + MENU_BAR_PANEL_EDGE_MARGIN, workArea.y));
-
-	return { x, y, width: MENU_BAR_PANEL_WIDTH, height: clampedHeight };
-}
-
-export function createMenuBarPanelWindow(): BrowserWindow {
 	const win = new BrowserWindow({
-		width: MENU_BAR_PANEL_WIDTH,
-		height: MENU_BAR_PANEL_INITIAL_HEIGHT,
+		width,
+		height,
+		minWidth: 640,
+		minHeight: 460,
+		x: Math.round(workArea.x + (workArea.width - width) / 2),
+		y: Math.round(workArea.y + (workArea.height - height) / 2),
 		show: false,
-		frame: false,
-		transparent: true,
-		backgroundColor: "#00000000",
-		resizable: false,
-		movable: false,
+		title: "Choose what to record",
 		minimizable: false,
 		maximizable: false,
 		fullscreenable: false,
-		skipTaskbar: true,
-		alwaysOnTop: true,
-		hasShadow: true,
-		// A panel floats above ordinary windows without taking over the Dock or
-		// the app switcher, which is what a menu bar popover should do.
 		...(process.platform === "darwin"
-			? {
-					type: "panel" as const,
-					vibrancy: "popover" as const,
-					visualEffectState: "active" as const,
-					roundedCorners: true,
-				}
+			? { titleBarStyle: "hiddenInset" as const, vibrancy: "under-window" as const }
 			: {}),
 		webPreferences: {
 			preload: path.join(electronWindowsDir, "preload.mjs"),
 			nodeIntegration: false,
 			contextIsolation: true,
-			backgroundThrottling: false,
 		},
 	});
 
-	win.setAlwaysOnTop(true, "status");
+	// Appear over whatever the user is in, including a full-screen app's Space.
+	win.setAlwaysOnTop(true, "floating");
 	win.setVisibleOnAllWorkspaces(true, {
 		visibleOnFullScreen: true,
-		// Keep Recordly a foreground application so macOS does not drop its Dock
-		// icon while the panel is open.
 		skipTransformProcessType: process.platform === "darwin",
 	});
 
-	// A menu bar popover closes as soon as attention moves elsewhere.
-	win.on("blur", () => {
-		if (!win.isDestroyed() && win.isVisible()) {
-			win.hide();
+	win.once("ready-to-show", () => {
+		if (!win.isDestroyed()) {
+			win.show();
+			win.focus();
+			app.focus({ steal: true });
 		}
 	});
-
 	win.on("closed", () => {
-		if (menuBarPanelWindow === win) {
-			menuBarPanelWindow = null;
+		if (shareWindow === win) {
+			shareWindow = null;
+			shareWindowIntent = null;
 		}
 	});
 
-	menuBarPanelWindow = win;
+	shareWindow = win;
+	shareWindowIntent = intent;
 
+	const query = { windowType: "share", intent };
 	if (VITE_DEV_SERVER_URL) {
-		win.loadURL(`${VITE_DEV_SERVER_URL}?windowType=menu-bar-panel`);
+		win.loadURL(`${VITE_DEV_SERVER_URL}?${new URLSearchParams(query).toString()}`);
 	} else {
 		const packagedBaseUrl = getPackagedRendererBaseUrl();
 		if (packagedBaseUrl) {
-			win.loadURL(`${packagedBaseUrl}?windowType=menu-bar-panel`);
+			win.loadURL(`${packagedBaseUrl}?${new URLSearchParams(query).toString()}`);
 		} else {
-			win.loadFile(path.join(RENDERER_DIST, "index.html"), {
-				query: { windowType: "menu-bar-panel" },
-			});
+			win.loadFile(path.join(RENDERER_DIST, "index.html"), { query });
 		}
 	}
 
 	return win;
 }
 
-export function showMenuBarPanelWindow(anchor: { x: number; y: number }): BrowserWindow {
-	const win = getMenuBarPanelWindow() ?? createMenuBarPanelWindow();
-	const bounds = getMenuBarPanelBounds(anchor, win.getBounds().height);
-	win.setBounds(bounds, false);
-
-	// Showing before the renderer has painted would flash an empty translucent
-	// box, so a cold panel waits for its first load.
-	if (win.webContents.isLoading()) {
-		win.webContents.once("did-finish-load", () => {
-			if (!win.isDestroyed()) {
-				win.setBounds(getMenuBarPanelBounds(anchor, win.getBounds().height), false);
-				win.show();
-				win.focus();
-			}
-		});
-		return win;
-	}
-
-	win.show();
-	win.focus();
-	return win;
-}
-
-/**
- * Builds the panel ahead of the first click so opening it from the menu bar is
- * instant, the way a native menu bar popover behaves.
- */
-export function prewarmMenuBarPanelWindow() {
-	if (!getMenuBarPanelWindow()) {
-		createMenuBarPanelWindow();
-	}
-}
-
-export function hideMenuBarPanelWindow() {
-	const win = getMenuBarPanelWindow();
-	if (win?.isVisible()) {
-		win.hide();
-	}
-}
-
-export function isMenuBarPanelVisible(): boolean {
-	return Boolean(getMenuBarPanelWindow()?.isVisible());
-}
-
-/**
- * The panel grows and shrinks as sections expand, so the renderer reports its
- * measured height and the window follows it while staying anchored to the icon.
- */
-export function resizeMenuBarPanelWindow(height: number) {
-	const win = getMenuBarPanelWindow();
-	if (!win || !Number.isFinite(height)) {
-		return;
-	}
-
-	const current = win.getBounds();
-	const bounds = getMenuBarPanelBounds(
-		{ x: current.x + current.width / 2, y: current.y - MENU_BAR_PANEL_EDGE_MARGIN },
-		Math.round(height),
-	);
-	if (bounds.height === current.height && bounds.y === current.y) {
-		return;
-	}
-
-	win.setBounds({ ...bounds, x: current.x }, false);
-}
-
-export function destroyMenuBarPanelWindow() {
-	const win = getMenuBarPanelWindow();
+export function closeShareWindow() {
+	const win = getShareWindow();
 	if (win) {
 		win.destroy();
 	}
-	menuBarPanelWindow = null;
+	shareWindow = null;
+	shareWindowIntent = null;
+}
+
+/** Resolves once the HUD renderer has mounted and can receive IPC. */
+export function whenHudRendererReady(timeoutMs = 8000): Promise<void> {
+	if (hudOverlayRendererIsReady) {
+		return Promise.resolve();
+	}
+	return new Promise((resolve) => {
+		const timer = setTimeout(done, timeoutMs);
+		function done() {
+			clearTimeout(timer);
+			ipcMain.removeListener("hud-overlay-renderer-ready", done);
+			resolve();
+		}
+		ipcMain.once("hud-overlay-renderer-ready", done);
+	});
 }

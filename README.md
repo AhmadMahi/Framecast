@@ -11,10 +11,10 @@ Language: EN | [简中](README.zh-CN.md)
 
 ### What Framecast adds
 
-- **Menu bar panel** (macOS): start, pause and stop recording, switch microphone and camera, check for updates, and open Settings from a small translucent dropdown.
-- **Zoom-style picking** (macOS): choose any window, several windows at once, an app, or a display in Apple's system picker, including full-screen apps on their own Spaces.
-- **Noise cancellation**: selectable profiles (Light, Standard, Strong, and Studio powered by RNNoise) applied to the microphone track, including on native macOS capture where the mic previously recorded raw.
-- **Primary-display fix**: windows on the main screen no longer disappear from the picker when something is maximized in front of them.
+- **Menu bar (macOS)**: a native menu with Start Recording, Stop Recording, Open Settings and Check for Updates. It costs nothing while idle.
+- **Zoom-style sharing (macOS)**: Start Recording opens a Share window. Pick one screen, or tick several windows at once, including full-screen apps on their own Spaces. Several windows record Zoom-style: their screen, with only the chosen windows visible.
+- **Noise cancellation**: Light, Standard, Strong and Studio (RNNoise) profiles for the microphone, chosen right in the Share window or in Settings, including on native macOS capture where the mic previously recorded raw.
+- **Primary-display fix**: windows on the main screen no longer disappear when something is maximized in front of them.
 
 ### Create polished demo videos in minutes
 Framecast is an **open-source screen recorder** and editor for **walkthroughs, demos, product videos**, and more. 

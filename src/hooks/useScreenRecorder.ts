@@ -1128,16 +1128,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const prepareRecordingStart = useCallback(async () => {
 		const platform = await window.electronAPI.getPlatform();
 		hideEditorOverlayCursorByDefault.current = false;
-		if (platform === "darwin" && typeof window.electronAPI.pickCaptureSource === "function") {
-			const current = await window.electronAPI.getSelectedSource();
-			if (!current?.id?.startsWith("picker:")) {
-				const pick = await window.electronAPI.pickCaptureSource();
-				if (!pick.success || pick.cancelled || !pick.source) {
-					return null;
-				}
-			}
-		}
-
 		const existingSource = await window.electronAPI.getSelectedSource();
 		const selectedSource =
 			existingSource ?? (platform === "linux" ? LINUX_PORTAL_SOURCE : null);
@@ -1167,7 +1157,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			platform === "darwin" &&
 			(selectedSource.id?.startsWith("screen:") ||
 				selectedSource.id?.startsWith("window:") ||
-				selectedSource.id?.startsWith("picker:")) &&
+				selectedSource.id?.startsWith("windows:")) &&
 			typeof window.electronAPI.startNativeScreenRecording === "function";
 
 		let useNativeWindowsCapture = false;
@@ -1275,8 +1265,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, []);
 
 	const startRecordingFromTray = useRef<() => void>(() => undefined);
-	const pauseRecordingFromTray = useRef<() => void>(() => undefined);
-	const resumeRecordingFromTray = useRef<() => void>(() => undefined);
+	const pendingShareStart = useRef(false);
+	const [shareStartRequest, setShareStartRequest] = useState(0);
 
 	const stopRecording = useRef(() => {
 		recordingStartGeneration.current += 1;
@@ -1590,16 +1580,17 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			});
 		}
 
-		// The menu bar panel has no recorder of its own, so it asks the HUD to
-		// start one.
-		const removeStartListener = window.electronAPI?.onStartRecordingFromTray?.(() => {
-			startRecordingFromTray.current();
-		});
-		const removePauseListener = window.electronAPI?.onPauseRecordingFromTray?.(() => {
-			pauseRecordingFromTray.current();
-		});
-		const removeResumeListener = window.electronAPI?.onResumeRecordingFromTray?.(() => {
-			resumeRecordingFromTray.current();
+		// The Share window saves its choices and hands them here, because this
+		// HUD owns the capture pipeline. State updates land in the next render,
+		// so the start itself waits for the effect below.
+		const removeStartListener = window.electronAPI?.onApplyRecordingChoices?.((choices) => {
+			setMicrophoneEnabled(choices.microphoneEnabled);
+			setMicrophoneDeviceId(choices.microphoneDeviceId);
+			setSystemAudioEnabled(choices.systemAudioEnabled);
+			if (choices.start) {
+				pendingShareStart.current = true;
+				setShareStartRequest((request) => request + 1);
+			}
 		});
 
 		const removeRecordingStateListener = window.electronAPI?.onRecordingStateChanged?.(
@@ -1649,8 +1640,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			recordingStartGeneration.current += 1;
 			cleanup?.();
 			removeStartListener?.();
-			removePauseListener?.();
-			removeResumeListener?.();
 			removeRecordingStateListener?.();
 			removeRecordingInterruptedListener?.();
 
@@ -1741,7 +1730,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			let nativeWindowsCaptureStartFailed = false;
 
 			if (useNativeCapture) {
-				let nativeResult = await window.electronAPI.startNativeScreenRecording(
+				const nativeResult = await window.electronAPI.startNativeScreenRecording(
 					selectedSource,
 					{
 						capturesSystemAudio: systemAudioEnabled,
@@ -1750,23 +1739,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						microphoneLabel: micLabel,
 					},
 				);
-				if (!nativeResult.success && nativeResult.needsPick && !startWasCancelled()) {
-					const pick = await window.electronAPI.pickCaptureSource();
-					if (!pick.success || pick.cancelled || !pick.source) {
-						cleanupCapturedMedia();
-						await stopWebcamRecorder();
-						return;
-					}
-					nativeResult = await window.electronAPI.startNativeScreenRecording(
-						pick.source,
-						{
-							capturesSystemAudio: systemAudioEnabled,
-							capturesMicrophone: microphoneEnabled,
-							microphoneDeviceId,
-							microphoneLabel: micLabel,
-						},
-					);
-				}
 				if (nativeResult.success && startWasCancelled()) {
 					nativeScreenRecording.current = true;
 					nativeWindowsRecording.current = useNativeWindowsCapture;
@@ -2490,8 +2462,16 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		startRecording();
 	};
-	pauseRecordingFromTray.current = pauseRecording;
-	resumeRecordingFromTray.current = resumeRecording;
+
+	// Runs after the render that applied the Share window's choices, so the
+	// recording starts with the microphone and audio the user just picked.
+	useEffect(() => {
+		if (!pendingShareStart.current || shareStartRequest === 0) {
+			return;
+		}
+		pendingShareStart.current = false;
+		startRecordingFromTray.current();
+	}, [shareStartRequest]);
 
 	return {
 		recording,

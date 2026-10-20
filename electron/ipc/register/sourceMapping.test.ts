@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getScreenSourceIdForDisplay, LINUX_PORTAL_SCREEN_SOURCE_ID } from "./sourceMapping";
+import {
+	parseCompositeWindowIds,
+	getScreenSourceIdForDisplay,
+	LINUX_PORTAL_SCREEN_SOURCE_ID,
+} from "./sourceMapping";
 
 describe("getScreenSourceIdForDisplay", () => {
 	it("keeps the live Electron screen source when one is available", () => {
@@ -43,5 +47,24 @@ describe("getScreenSourceIdForDisplay", () => {
 				platform: "win32",
 			}),
 		).toBe("screen:fallback:42");
+	});
+});
+
+describe("parseCompositeWindowIds", () => {
+	it("reads the window ids of a Zoom-style multi-window source", () => {
+		expect(parseCompositeWindowIds("windows:101,102,7")).toEqual([101, 102, 7]);
+		expect(parseCompositeWindowIds("windows:103")).toEqual([103]);
+	});
+
+	it("is empty for every other kind of source", () => {
+		expect(parseCompositeWindowIds("window:101:0")).toEqual([]);
+		expect(parseCompositeWindowIds("screen:1:0")).toEqual([]);
+		expect(parseCompositeWindowIds(undefined)).toEqual([]);
+		expect(parseCompositeWindowIds(null)).toEqual([]);
+	});
+
+	it("ignores malformed ids instead of passing them to the capture helper", () => {
+		expect(parseCompositeWindowIds("windows:12,abc,,-4,0,9")).toEqual([12, 9]);
+		expect(parseCompositeWindowIds("windows:")).toEqual([]);
 	});
 });

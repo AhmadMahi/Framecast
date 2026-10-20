@@ -33,3 +33,15 @@ export function getScreenSourceIdForDisplay({
 
 	return `screen:fallback:${displayId}`;
 }
+
+/** Window ids from a `windows:<id>,<id>` composite source; empty otherwise. */
+export function parseCompositeWindowIds(sourceId: string | undefined | null): number[] {
+	if (!sourceId?.startsWith("windows:")) {
+		return [];
+	}
+	return sourceId
+		.slice("windows:".length)
+		.split(",")
+		.map((part) => Number.parseInt(part, 10))
+		.filter((id) => Number.isFinite(id) && id > 0);
+}

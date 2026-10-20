@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import CoreGraphics
 import ScreenCaptureKit
@@ -9,6 +10,9 @@ struct WindowListEntry: Codable {
 	let appName: String?
 	let windowTitle: String?
 	let bundleId: String?
+	/// The owning app's bundle path, so Electron can show its icon for windows
+	/// that have no thumbnail (a full-screen app on another Space).
+	let appPath: String?
 	let x: Double
 	let y: Double
 	let width: Double
@@ -114,6 +118,9 @@ Task {
 				appName: appName,
 				windowTitle: resolvedWindowTitle,
 				bundleId: bundleId,
+				appPath: window.owningApplication.flatMap {
+					NSRunningApplication(processIdentifier: $0.processID)?.bundleURL?.path
+				},
 				x: Double(frame.origin.x),
 				y: Double(frame.origin.y),
 				width: Double(frame.width),

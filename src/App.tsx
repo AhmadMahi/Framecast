@@ -18,9 +18,9 @@ const UpdateToastWindow = lazy(() =>
 		default: module.UpdateToastWindow,
 	})),
 );
-const MenuBarPanel = lazy(() =>
-	import("./components/launch/MenuBarPanel").then((module) => ({
-		default: module.MenuBarPanel,
+const ShareWindow = lazy(() =>
+	import("./components/launch/ShareWindow").then((module) => ({
+		default: module.ShareWindow,
 	})),
 );
 const EditorWindow = lazy(() => import("./components/video-editor/EditorWindow"));
@@ -40,7 +40,7 @@ export default function App() {
 			windowType === "source-selector" ||
 			windowType === "countdown" ||
 			windowType === "update-toast" ||
-			windowType === "menu-bar-panel"
+			windowType === "share"
 		) {
 			document.body.style.background = "transparent";
 			document.documentElement.style.background = "transparent";
@@ -80,8 +80,8 @@ export default function App() {
 		case "update-toast":
 			content = <UpdateToastWindow />;
 			break;
-		case "menu-bar-panel":
-			content = <MenuBarPanel />;
+		case "share":
+			content = <ShareWindow />;
 			break;
 		case "editor":
 			content = <EditorWindow />;

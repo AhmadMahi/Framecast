@@ -80,13 +80,8 @@ function LaunchWindowContent() {
 	const hudContentRef = useRef<HTMLDivElement>(null);
 	const hudBarRef = useRef<HTMLDivElement>(null);
 
-	const {
-		selectedSource,
-		hasSelectedSource,
-		handleSourceSelect,
-		handlePickSource,
-		syncSelectedSource,
-	} = useLaunchWindowActions();
+	const { selectedSource, hasSelectedSource, handleSourceSelect, syncSelectedSource } =
+		useLaunchWindowActions();
 
 	const showWebcamControls = webcamEnabled && !recording;
 	const { devices, selectedDeviceId, setSelectedDeviceId } = useMicrophoneDevices(
@@ -233,7 +228,9 @@ function LaunchWindowContent() {
 						title={selectedSource}
 						onClick={() => {
 							beginInteractiveHudAction();
-							void handlePickSource();
+							// The Share window lists screens and windows, including
+							// full-screen apps, and supports picking several at once.
+							void window.electronAPI.openShareWindow("select");
 						}}
 					>
 						<MonitorIcon size={18} className="size-5 shrink-0" />

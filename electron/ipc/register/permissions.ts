@@ -71,6 +71,38 @@ export function registerPermissionHandlers() {
 		}
 	});
 
+	/**
+	 * Asks macOS for microphone access the first time (its own prompt), so the
+	 * Share window can show real microphone names. Reports the outcome.
+	 */
+	ipcMain.handle("request-microphone-access", async () => {
+		if (process.platform !== "darwin") {
+			return { success: true, status: "granted" };
+		}
+		try {
+			let status = systemPreferences.getMediaAccessStatus("microphone");
+			if (status === "not-determined") {
+				const granted = await systemPreferences.askForMediaAccess("microphone");
+				status = granted ? "granted" : "denied";
+			}
+			return { success: true, status };
+		} catch (error) {
+			return { success: false, status: "unknown", error: String(error) };
+		}
+	});
+
+	ipcMain.handle("open-microphone-preferences", async () => {
+		if (process.platform !== "darwin") {
+			return { success: true };
+		}
+		try {
+			await shell.openExternal(getMacPrivacySettingsUrl("microphone"));
+			return { success: true };
+		} catch (error) {
+			return { success: false, error: String(error) };
+		}
+	});
+
 	ipcMain.handle("open-accessibility-preferences", async () => {
 		if (process.platform !== "darwin") {
 			return { success: true };

@@ -275,6 +275,19 @@ interface Window {
 		onRecordingPausedChanged: (callback: (state: { paused: boolean }) => void) => () => void;
 		onPauseRecordingFromTray: (callback: () => void) => () => void;
 		onResumeRecordingFromTray: (callback: () => void) => () => void;
+		getRecordingPreview: () => Promise<{
+			title: string;
+			kind: "screen" | "window" | "windows" | "none" | "unknown";
+			previews: Array<{ label: string; image: string | null }>;
+		}>;
+		onMenuBarPanelShown: (callback: () => void) => () => void;
+		showRecordingError: (detail: string) => Promise<{ success: boolean }>;
+		requestMicrophoneAccess: () => Promise<{
+			success: boolean;
+			status: string;
+			error?: string;
+		}>;
+		openMicrophonePreferences: () => Promise<{ success: boolean; error?: string }>;
 		getWindowListHealth: () => Promise<{ error: string | null }>;
 		openShareWindow: (intent: "record" | "select") => Promise<{ success: boolean }>;
 		cancelShareWindow: () => Promise<{ success: boolean }>;

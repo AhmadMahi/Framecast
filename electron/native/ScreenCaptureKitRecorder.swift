@@ -96,9 +96,13 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
 		let config = try JSONDecoder().decode(CaptureConfig.self, from: data)
 		let compositeWindowIds = Set(config.windowIds ?? [])
+		// A window that is covered by another window, or sits on another Space
+		// (a full-screen app), is not "on screen" to ScreenCaptureKit but is
+		// still perfectly recordable, so window captures look at every window.
+		let capturesWindows = !compositeWindowIds.isEmpty || config.windowId != nil
 		let availableContent = try await SCShareableContent.excludingDesktopWindows(
 			false,
-			onScreenWindowsOnly: compositeWindowIds.isEmpty
+			onScreenWindowsOnly: !capturesWindows
 		)
 		let streamConfig = SCStreamConfiguration()
 		capturesSystemAudio = config.capturesSystemAudio ?? false
@@ -159,25 +163,10 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 				throw NSError(domain: "RecordlyCapture", code: 4, userInfo: [NSLocalizedDescriptionKey: "Display not found"])
 			}
 
-			var includedApps: [SCRunningApplication] = []
-			var includedPids = Set<pid_t>()
-			for window in selectedWindows {
-				if let app = window.owningApplication, includedPids.insert(app.processID).inserted {
-					includedApps.append(app)
-				}
-			}
-			// Untitled layer-0 windows are usually part of an app's own chrome
-			// (toolbars, tab strips), so only other titled windows are hidden.
-			let hiddenSiblings = availableContent.windows.filter { window in
-				guard let pid = window.owningApplication?.processID, includedPids.contains(pid) else { return false }
-				let hasTitle = !(window.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-				return window.windowLayer == 0 && hasTitle && !compositeWindowIds.contains(window.windowID)
-			}
-
 			trackedWindowId = nil
 			windowCropRect = nil
 			windowCropDisplayId = nil
-			filter = SCContentFilter(display: display, including: includedApps, exceptingWindows: hiddenSiblings)
+			filter = Self.isolationFilter(display: display, windows: selectedWindows, content: availableContent)
 			let displayBounds = CGDisplayBounds(display.displayID)
 			let scaleFactor = ScreenCaptureRecorder.scaleFactor(for: display.displayID)
 			outputWidth = max(2, Int(displayBounds.width) * scaleFactor)
@@ -207,11 +196,11 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 			}
 			let scaleFactor = ScreenCaptureRecorder.scaleFactor(for: display.displayID)
 			let captureRect = visibleFrame.intersection(display.frame)
-			filter = SCContentFilter(
-				display: display,
-				excludingApplications: excludedApplications,
-				exceptingWindows: []
-			)
+			// Draw only this window's app, so a window sliding over the recorded
+			// one never shows up in the crop; menus and popovers still do.
+			filter = window.owningApplication == nil
+				? SCContentFilter(display: display, excludingApplications: excludedApplications, exceptingWindows: [])
+				: Self.isolationFilter(display: display, windows: [window], content: availableContent)
 			windowCropRect = CGRect(
 				x: (captureRect.minX - display.frame.minX) / display.frame.width,
 				y: (captureRect.minY - display.frame.minY) / display.frame.height,
@@ -924,7 +913,9 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
 				let availableContent: SCShareableContent
 				do {
-					availableContent = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+					// Every window, not just unobstructed ones: covering the window or
+					// switching Spaces must not end the recording, only closing it.
+					availableContent = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
 				} catch {
 					continue
 				}
@@ -965,11 +956,9 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 					let excludedApplications = availableContent.applications.filter {
 						self.excludedProcessIds.contains($0.processID)
 					}
-					let filter = SCContentFilter(
-						display: display,
-						excludingApplications: excludedApplications,
-						exceptingWindows: []
-					)
+					let filter = window.owningApplication == nil
+						? SCContentFilter(display: display, excludingApplications: excludedApplications, exceptingWindows: [])
+						: Self.isolationFilter(display: display, windows: [window], content: availableContent)
 					do {
 						try await activeStream.updateContentFilter(filter)
 					} catch {
@@ -988,6 +977,26 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 				}
 			}
 		}
+	}
+
+	/// Records `display` drawing only the apps that own `windows`, with each of
+	/// those apps' other titled windows hidden. Untitled layer-0 windows are
+	/// usually the app's own chrome (toolbars, tab strips), so they stay.
+	private static func isolationFilter(display: SCDisplay, windows: [SCWindow], content: SCShareableContent) -> SCContentFilter {
+		let keptIds = Set(windows.map(\.windowID))
+		var apps: [SCRunningApplication] = []
+		var pids = Set<pid_t>()
+		for window in windows {
+			if let app = window.owningApplication, pids.insert(app.processID).inserted {
+				apps.append(app)
+			}
+		}
+		let hiddenSiblings = content.windows.filter { window in
+			guard let pid = window.owningApplication?.processID, pids.contains(pid) else { return false }
+			let hasTitle = !(window.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+			return window.windowLayer == 0 && hasTitle && !keptIds.contains(window.windowID)
+		}
+		return SCContentFilter(display: display, including: apps, exceptingWindows: hiddenSiblings)
 	}
 
 	private static func overlapArea(of windows: [SCWindow], with displayFrame: CGRect) -> CGFloat {

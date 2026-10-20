@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 /**
  * The Share window talks only to the preload bridge, so a small fake bridge is
@@ -100,6 +100,48 @@ async function installShareBridge(page: Page) {
 			},
 		});
 	});
+}
+
+/**
+ * Fakes the microphone list. Until access is granted Chromium reports one
+ * nameless device, exactly as it does for a page without microphone access.
+ */
+async function installMicrophones(page: Page, options: { granted: boolean; enabled: boolean }) {
+	await page.addInitScript((opts) => {
+		const state = { granted: opts.granted };
+		const named = [
+			{ deviceId: "default", label: "Default - MacBook Air Microphone", groupId: "a" },
+			{ deviceId: "builtin", label: "MacBook Air Microphone", groupId: "a" },
+			{ deviceId: "usb-1", label: "Studio Mic (046d:0825)", groupId: "b" },
+		];
+		Object.defineProperty(navigator, "mediaDevices", {
+			configurable: true,
+			value: {
+				enumerateDevices: async () =>
+					(state.granted ? named : [{ deviceId: "", label: "", groupId: "" }]).map(
+						(device) => ({ ...device, kind: "audioinput", toJSON: () => device }),
+					),
+				getUserMedia: async () => {
+					if (!state.granted) throw new DOMException("denied", "NotAllowedError");
+					return { getTracks: () => [] };
+				},
+				addEventListener: () => {},
+				removeEventListener: () => {},
+			},
+		});
+		const api = (window as unknown as { electronAPI: Record<string, unknown> }).electronAPI;
+		api.requestMicrophoneAccess = async () => {
+			state.granted = true;
+			document.documentElement.dataset.micRequested = "true";
+			return { success: true, status: "granted" };
+		};
+		const prefs = api.getRecordingPreferences as () => Promise<Record<string, unknown>>;
+		api.getRecordingPreferences = async () => ({
+			...(await prefs()),
+			microphoneEnabled: opts.enabled,
+			microphoneDeviceId: opts.enabled ? "usb-1" : undefined,
+		});
+	}, options);
 }
 
 async function calls(page: Page) {
@@ -230,4 +272,60 @@ test("an empty window list explains the missing permission instead of claiming n
 	await expect(page.getByText("No open windows found", { exact: false })).toHaveCount(0);
 	await page.getByRole("button", { name: "Open System Settings" }).click();
 	await expect(page.locator("html")).toHaveAttribute("data-opened-settings", "true");
+});
+
+test("the microphone chip names the chosen microphone", async ({ page }) => {
+	await installShareBridge(page);
+	await installMicrophones(page, { granted: true, enabled: true });
+	await page.goto("/?windowType=share&intent=select");
+
+	const chip = page.locator("label").filter({ hasText: "Microphone" });
+	// The USB vendor id Chromium appends is dropped from the name.
+	await expect(chip).toContainText("Studio Mic");
+	await expect(chip).not.toContainText("046d");
+	await expect(page.getByRole("combobox", { name: "Microphone" })).toHaveValue("usb-1");
+	await expect(
+		page.locator("option", { hasText: "System default (MacBook Air Microphone)" }),
+	).toHaveCount(1);
+});
+
+test("nameless microphones ask for access, then show their names", async ({ page }) => {
+	await installShareBridge(page);
+	await installMicrophones(page, { granted: false, enabled: false });
+	await page.goto("/?windowType=share&intent=select");
+
+	const allow = page.getByRole("button", { name: /Allow access to list microphones/ });
+	await expect(allow).toBeVisible();
+	await allow.click();
+
+	await expect(page.locator("html")).toHaveAttribute("data-mic-requested", "true");
+	await expect(allow).toHaveCount(0);
+	await page.getByRole("combobox", { name: "Microphone" }).selectOption("builtin");
+	await expect(page.locator("label").filter({ hasText: "Microphone" })).toContainText(
+		"MacBook Air Microphone",
+	);
+});
+
+test("a window without a preview says why, and the close button cancels", async ({ page }) => {
+	await installShareBridge(page);
+	await page.addInitScript(() => {
+		const api = (window as unknown as { electronAPI: Record<string, unknown> }).electronAPI;
+		const original = api.getSources as () => Promise<Array<Record<string, unknown>>>;
+		api.getSources = async () =>
+			(await original()).map((source) =>
+				source.id === "window:102:0" ? { ...source, thumbnail: null } : source,
+			);
+	});
+	await page.goto("/?windowType=share&intent=record");
+
+	// Only the minimized/off-screen window gets the caption, not the full-screen app.
+	await expect(page.getByText("No preview while off screen")).toHaveCount(1);
+	await expect(page.getByRole("button", { name: /Script/ })).toContainText(
+		"No preview while off screen",
+	);
+
+	await page.getByRole("button", { name: "Close" }).click();
+	await expect
+		.poll(async () => (await calls(page)).map((c) => c.name))
+		.toEqual(["cancelShareWindow"]);
 });

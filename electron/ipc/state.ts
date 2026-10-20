@@ -1,4 +1,17 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+
+/**
+ * True when the chosen source is one or more app windows on macOS. Framecast
+ * then avoids taking focus, because activating it can switch away from the
+ * desktop the shared window is on, and macOS only records what is on screen.
+ */
+export function isSharingMacWindows(source: { id?: string } | null | undefined = selectedSource) {
+	return (
+		process.platform === "darwin" &&
+		Boolean(source?.id?.startsWith("window:") || source?.id?.startsWith("windows:"))
+	);
+}
+
 import type {
 	CursorInteractionType,
 	CursorTelemetryPoint,

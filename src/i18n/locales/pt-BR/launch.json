@@ -55,8 +55,8 @@
 			"checkingTitle": "Verificando atualizações...",
 			"downloadingTitle": "Baixando atualização...",
 			"errorTitle": "Falha ao verificar atualizações. Clique para tentar novamente.",
-			"upToDateTitle": "Recordly {{version}} está atualizado.",
-			"availableTitle": "Recordly {{version}} está disponível.",
+			"upToDateTitle": "Framecast {{version}} está atualizado.",
+			"availableTitle": "Framecast {{version}} está disponível.",
 			"availableGenericTitle": "Há uma atualização disponível."
 		},
 		"pauseRecording": "Pausar gravação",
@@ -69,7 +69,8 @@
 		"startRecording": "Iniciar gravação",
 		"stopRecording": "Parar gravação",
 		"on": "Sim",
-		"off": "Não"
+		"off": "Não",
+		"nowRecording": "Gravando"
 	},
 	"sourceSelector": {
 		"loadingSources": "Carregando fontes...",
@@ -83,10 +84,10 @@
 		"share": "Compartilhar"
 	},
 	"permissions": {
-		"screenRecordingNeeded": "O Recordly precisa da permissão de Gravação de Tela antes de iniciar. Ajustes do Sistema foram abertos. Depois de ativar, feche e reabra o Recordly.",
-		"screenRecordingMissing": "A permissão de Gravação de Tela ainda está ausente. Ajustes do Sistema foram abertos novamente. Ative e depois feche e reabra o Recordly antes de gravar.",
-		"accessibilityNeeded": "O Recordly também precisa da permissão de Acessibilidade para rastrear o cursor. Ajustes do Sistema foram abertos. Depois de ativar, feche e reabra o Recordly.",
-		"accessibilityMissing": "A permissão de Acessibilidade ainda está ausente. Ajustes do Sistema foram abertos novamente. Ative e depois feche e reabra o Recordly antes de gravar.",
+		"screenRecordingNeeded": "O Framecast precisa da permissão de Gravação de Tela antes de iniciar. Ajustes do Sistema foram abertos. Depois de ativar, feche e reabra o Framecast.",
+		"screenRecordingMissing": "A permissão de Gravação de Tela ainda está ausente. Ajustes do Sistema foram abertos novamente. Ative e depois feche e reabra o Framecast antes de gravar.",
+		"accessibilityNeeded": "O Framecast também precisa da permissão de Acessibilidade para rastrear o cursor. Ajustes do Sistema foram abertos. Depois de ativar, feche e reabra o Framecast.",
+		"accessibilityMissing": "A permissão de Acessibilidade ainda está ausente. Ajustes do Sistema foram abertos novamente. Ative e depois feche e reabra o Framecast antes de gravar.",
 		"selectSource": "Selecione uma fonte para gravar",
 		"systemAudioUnavailable": "O áudio do sistema não está disponível para esta fonte. A gravação continuará sem áudio do sistema.",
 		"microphoneDenied": "O acesso ao microfone foi negado. A gravação continuará sem áudio do microfone.",
@@ -96,7 +97,7 @@
 	"updateToast": {
 		"availableTitle": "Atualização disponível",
 		"experimentalAvailableTitle": "Atualização experimental disponível",
-		"experimentalDescription": "Você ativou as atualizações experimentais, então pode escolher testar a atualização mais recente do Recordly antes que ela fique amplamente disponível.",
+		"experimentalDescription": "Você ativou as atualizações experimentais, então pode escolher testar a atualização mais recente do Framecast antes que ela fique amplamente disponível.",
 		"downloadingTitle": "Baixando sua atualização",
 		"readyTitle": "Pronto para reiniciar",
 		"checkErrorTitle": "Não foi possível verificar atualizações",
@@ -137,6 +138,12 @@
 		"noWindows": "Nenhuma janela aberta. Abra um app e toque em Atualizar.",
 		"on": "Sim",
 		"off": "Não",
-		"needsMic": "Requer um microfone"
+		"needsMic": "Requer um microfone",
+		"close": "Fechar",
+		"noPreview": "Sem prévia fora da tela",
+		"defaultMicrophone": "Padrão do sistema",
+		"defaultMicrophoneNamed": "Padrão do sistema ({{name}})",
+		"micBlocked": "Ative o acesso em Ajustes",
+		"micAllow": "Permita o acesso para listar os microfones"
 	}
 }

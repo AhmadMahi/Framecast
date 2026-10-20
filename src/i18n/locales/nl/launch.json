@@ -55,8 +55,8 @@
 			"checkingTitle": "Controleren op updates...",
 			"downloadingTitle": "Update downloaden...",
 			"errorTitle": "Updatecontrole mislukt. Klik om opnieuw te proberen.",
-			"upToDateTitle": "Recordly {{version}} is up-to-date.",
-			"availableTitle": "Recordly {{version}} is beschikbaar.",
+			"upToDateTitle": "Framecast {{version}} is up-to-date.",
+			"availableTitle": "Framecast {{version}} is beschikbaar.",
 			"availableGenericTitle": "Er is een update beschikbaar."
 		},
 		"pauseRecording": "Opname pauzeren",
@@ -69,7 +69,8 @@
 		"startRecording": "Opname starten",
 		"stopRecording": "Opname stoppen",
 		"on": "Aan",
-		"off": "Uit"
+		"off": "Uit",
+		"nowRecording": "Opname"
 	},
 	"sourceSelector": {
 		"loadingSources": "Bronnen laden...",
@@ -83,10 +84,10 @@
 		"share": "Delen"
 	},
 	"permissions": {
-		"screenRecordingNeeded": "Recordly heeft toestemming voor schermopname nodig voordat je begint. Systeeminstellingen zijn geopend. Schakel het in, sluit Recordly en open het opnieuw.",
-		"screenRecordingMissing": "Toestemming voor schermopname ontbreekt nog. Systeeminstellingen zijn opnieuw geopend. Schakel het in, sluit Recordly en open het opnieuw voordat je opneemt.",
-		"accessibilityNeeded": "Recordly heeft ook toegankelijkheidstoestemming nodig voor cursortracking. Systeeminstellingen zijn geopend. Schakel het in, sluit Recordly en open het opnieuw.",
-		"accessibilityMissing": "Toegankelijkheidstoestemming ontbreekt nog. Systeeminstellingen zijn opnieuw geopend. Schakel het in, sluit Recordly en open het opnieuw voordat je opneemt.",
+		"screenRecordingNeeded": "Framecast heeft toestemming voor schermopname nodig voordat je begint. Systeeminstellingen zijn geopend. Schakel het in, sluit Framecast en open het opnieuw.",
+		"screenRecordingMissing": "Toestemming voor schermopname ontbreekt nog. Systeeminstellingen zijn opnieuw geopend. Schakel het in, sluit Framecast en open het opnieuw voordat je opneemt.",
+		"accessibilityNeeded": "Framecast heeft ook toegankelijkheidstoestemming nodig voor cursortracking. Systeeminstellingen zijn geopend. Schakel het in, sluit Framecast en open het opnieuw.",
+		"accessibilityMissing": "Toegankelijkheidstoestemming ontbreekt nog. Systeeminstellingen zijn opnieuw geopend. Schakel het in, sluit Framecast en open het opnieuw voordat je opneemt.",
 		"selectSource": "Selecteer een bron om op te nemen",
 		"systemAudioUnavailable": "Systeemaudio is niet beschikbaar voor deze bron. De opname gaat verder zonder systeemaudio.",
 		"microphoneDenied": "Microfoontoegang is geweigerd. De opname gaat verder zonder microfoonaudio.",
@@ -96,7 +97,7 @@
 	"updateToast": {
 		"availableTitle": "Update beschikbaar",
 		"experimentalAvailableTitle": "Experimentele update beschikbaar",
-		"experimentalDescription": "Je hebt experimentele updates ingeschakeld, dus je kunt de nieuwste update van Recordly testen voordat die breed beschikbaar is.",
+		"experimentalDescription": "Je hebt experimentele updates ingeschakeld, dus je kunt de nieuwste update van Framecast testen voordat die breed beschikbaar is.",
 		"downloadingTitle": "Update downloaden",
 		"readyTitle": "Klaar om opnieuw te starten",
 		"checkErrorTitle": "Kan niet controleren op updates",
@@ -137,6 +138,12 @@
 		"noWindows": "Geen open vensters. Open een app en klik op Vernieuw.",
 		"on": "Aan",
 		"off": "Uit",
-		"needsMic": "Microfoon nodig"
+		"needsMic": "Microfoon nodig",
+		"close": "Sluiten",
+		"noPreview": "Geen voorbeeld buiten beeld",
+		"defaultMicrophone": "Systeemstandaard",
+		"defaultMicrophoneNamed": "Systeemstandaard ({{name}})",
+		"micBlocked": "Zet toegang aan in Instellingen",
+		"micAllow": "Geef toegang om microfoons te tonen"
 	}
 }

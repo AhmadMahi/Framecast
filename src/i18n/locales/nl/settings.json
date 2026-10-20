@@ -83,7 +83,7 @@
 		"connectedZoomDuration": "Verbonden zoomduur",
 		"connectedZoomEasing": "Verbonden pancurve",
 		"zoomEasingOptions": {
-			"recordly": "Recordly",
+			"recordly": "Framecast",
 			"glide": "Glijden",
 			"smooth": "Vloeiend",
 			"snappy": "Pittig",
@@ -254,7 +254,7 @@
 		"deleteRegion": "Audio verwijderen"
 	},
 	"updates": {
-		"experimentalDescription": "Je hebt experimentele updates ingeschakeld, dus je kunt de nieuwste update van Recordly testen voordat die breed beschikbaar is.",
+		"experimentalDescription": "Je hebt experimentele updates ingeschakeld, dus je kunt de nieuwste update van Framecast testen voordat die breed beschikbaar is.",
 		"title": "Updates",
 		"check": "Controleren op updates",
 		"checkDescription": "Zoekt naar een nieuwere versie in het releasekanaal.",

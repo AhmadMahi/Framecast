@@ -116,6 +116,8 @@ export type NativeMacWindowSource = {
 	bundleId?: string;
 	appIcon?: string | null;
 	appPath?: string;
+	/** JPEG data URL, present when previews were requested. */
+	thumbnail?: string;
 	x?: number;
 	y?: number;
 	width?: number;

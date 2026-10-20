@@ -91,7 +91,6 @@
 		"solidColor": "Solid Color (Censorship)",
 		"borderRadius": "Border Radius"
 	},
-
 	"fontStyles": {
 		"classic": "Classic",
 		"editor": "Editor",
@@ -169,10 +168,13 @@
 		"experimentalBuilds": "Tip: Try experimental builds by turning on access in settings",
 		"cursorAppearance": "Tip: You can customise your cursor appearance"
 	},
-	"account": { "title": "Account", "comingSoon": "Account coming soon" },
+	"account": {
+		"title": "Account",
+		"comingSoon": "Account coming soon"
+	},
 	"nativeCaptureUnavailable": {
 		"title": "Nothing’s broken, but we won’t be able to render an animated cursor overlay.",
-		"description": "Your device does not support native capture. This could be for a variety of reasons we haven’t figured out yet. This doesn’t break Recordly, but it does make cursor smoothing impossible.",
+		"description": "Your device does not support native capture. This could be for a variety of reasons we haven’t figured out yet. This doesn’t break Framecast, but it does make cursor smoothing impossible.",
 		"confirm": "Okay"
 	},
 	"exportStatus": {

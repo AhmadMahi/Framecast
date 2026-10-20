@@ -27,12 +27,26 @@ function parseUrl(value: string): URL | null {
 	}
 }
 
+/** The Share window lists microphones, so it may read device labels too. */
+const SHARE_WINDOW_TYPE = "share";
+const SHARE_WINDOW_INTENTS = new Set(["record", "select"]);
+
 function hasExactCaptureWindowQuery(url: URL): boolean {
 	const entries = [...url.searchParams.entries()];
-	return (
+	if (
 		entries.length === 1 &&
 		entries[0]?.[0] === "windowType" &&
 		entries[0][1] === CAPTURE_WINDOW_TYPE
+	) {
+		return true;
+	}
+
+	return (
+		entries.length === 2 &&
+		entries[0]?.[0] === "windowType" &&
+		entries[0][1] === SHARE_WINDOW_TYPE &&
+		entries[1]?.[0] === "intent" &&
+		SHARE_WINDOW_INTENTS.has(entries[1][1])
 	);
 }
 

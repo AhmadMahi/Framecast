@@ -280,6 +280,23 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("resume-recording-from-tray", listener);
 		return () => ipcRenderer.removeListener("resume-recording-from-tray", listener);
 	},
+	getRecordingPreview: () => {
+		return ipcRenderer.invoke("get-recording-preview");
+	},
+	onMenuBarPanelShown: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("menu-bar-panel:shown", listener);
+		return () => ipcRenderer.removeListener("menu-bar-panel:shown", listener);
+	},
+	showRecordingError: (detail: string) => {
+		return ipcRenderer.invoke("show-recording-error", detail);
+	},
+	requestMicrophoneAccess: () => {
+		return ipcRenderer.invoke("request-microphone-access");
+	},
+	openMicrophonePreferences: () => {
+		return ipcRenderer.invoke("open-microphone-preferences");
+	},
 	getWindowListHealth: () => {
 		return ipcRenderer.invoke("get-window-list-health");
 	},

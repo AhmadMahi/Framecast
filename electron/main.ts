@@ -1,4 +1,3 @@
-import { clearRecordingTrashUndo } from "./ipc/recording/library";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -10,6 +9,7 @@ import {
 	webContents as electronWebContents,
 	ipcMain,
 	Menu,
+	Notification,
 	nativeImage,
 	session,
 	shell,
@@ -28,9 +28,18 @@ import {
 	killWindowsCaptureProcess,
 	registerIpcHandlers,
 } from "./ipc/handlers";
+import { clearRecordingTrashUndo } from "./ipc/recording/library";
+import { isSharingMacWindows } from "./ipc/state";
 import { ensureMediaServer } from "./mediaServer";
 import { hardenWebContentsNavigation, shouldHardenWebContentsType } from "./navigationPolicy";
 import { shouldGrantDisplayCapture, shouldGrantMediaPermission } from "./permissionPolicy";
+import {
+	markQuitFromApp,
+	markQuitRefused,
+	noteRecordingActive,
+	noteRecordingStarting,
+	shouldRefuseQuit,
+} from "./quitGuard";
 import { ensurePackagedRendererServer, getPackagedRendererBaseUrl } from "./rendererServer";
 import {
 	checkForAppUpdates,
@@ -50,26 +59,26 @@ import {
 	skipAvailableUpdateVersion,
 } from "./updater";
 import {
+	beginHudCaptureProtection,
+	closeShareWindow,
 	createEditorWindow,
 	createHudOverlayWindow,
 	createSourceSelectorWindow,
-	closeShareWindow,
 	destroyMenuBarPanelWindow,
-	getShareWindow,
-	hideMenuBarPanelWindow,
-	isMenuBarPanelVisible,
-	openShareWindow,
-	resizeMenuBarPanelWindow,
-	showMenuBarPanelWindow,
-	whenHudRendererReady,
 	getHudOverlayWindow,
+	getShareWindow,
 	getUpdateToastWindow,
+	hideMenuBarPanelWindow,
 	hideUpdateToastWindow,
 	isHudOverlayMousePassthroughSupported,
-	beginHudCaptureProtection,
+	isMenuBarPanelVisible,
+	openShareWindow,
 	reassertHudOverlayMousePassthrough as reassertHudOverlayMouseState,
+	resizeMenuBarPanelWindow,
 	setHudOverlayRecordingActive,
+	showMenuBarPanelWindow,
 	showUpdateToastWindow,
+	whenHudRendererReady,
 } from "./windows";
 
 const electronMainDir = path.dirname(fileURLToPath(import.meta.url));
@@ -376,6 +385,14 @@ function showHudOverlayFromTray() {
 		return true;
 	}
 
+	if (isSharingMacWindows()) {
+		// The bar shows on every desktop; focusing it could switch away from
+		// the desktop of the window being shared.
+		hud.showInactive();
+		hud.moveTop();
+		return true;
+	}
+
 	hud.show();
 	hud.moveTop();
 	hud.focus();
@@ -527,7 +544,14 @@ function setupApplicationMenu() {
 				{ role: "hideOthers" },
 				{ role: "unhide" },
 				{ type: "separator" },
-				{ role: "quit" },
+				{
+					label: `Quit ${app.name}`,
+					accelerator: "Command+Q",
+					click: () => {
+						markQuitFromApp();
+						app.quit();
+					},
+				},
 			],
 		});
 	}
@@ -901,6 +925,20 @@ ipcMain.handle("menu-bar-panel:check-updates", async () => {
 	return { success: true };
 });
 
+/**
+ * Start failures are reported from here as a normal macOS dialog. An alert()
+ * inside the transparent, click-through recording bar is easy to miss.
+ */
+ipcMain.handle("show-recording-error", (_event, detail: string) => {
+	void dialog.showMessageBox({
+		type: "warning",
+		message: "Framecast couldn't start the recording",
+		detail: String(detail ?? "").slice(0, 600),
+		buttons: ["OK"],
+	});
+	return { success: true };
+});
+
 ipcMain.handle("share-window:open", (_event, intent: "record" | "select") => {
 	openShareWindow(intent === "select" ? "select" : "record");
 	return { success: true };
@@ -916,6 +954,11 @@ ipcMain.handle("share-window:cancel", () => {
  * the HUD, which owns the capture pipeline, and start if that was the intent.
  */
 ipcMain.handle("share-window:complete", async (_event, choices: RecordingChoices) => {
+	if (choices.start) {
+		// Closing the Share window can leave Framecast with no regular window
+		// for a moment, which some "auto quit" utilities act on.
+		noteRecordingStarting();
+	}
 	closeShareWindow();
 
 	if (!getHudOverlayWindow()) {
@@ -960,6 +1003,7 @@ ipcMain.handle("check-for-app-updates", async () => {
 
 function updateTrayMenu(recording: boolean = false) {
 	trayRecordingActive = recording;
+	noteRecordingActive(recording);
 	if (!tray) return;
 	const trayIcon = recording ? getRecordingTrayIcon() : getDefaultTrayIcon();
 	const trayToolTip = recording ? `Recording: ${selectedSourceName}` : "Framecast";
@@ -994,6 +1038,7 @@ function updateTrayMenu(recording: boolean = false) {
 				{
 					label: "Quit",
 					click: () => {
+						markQuitFromApp();
 						app.quit();
 					},
 				},
@@ -1130,7 +1175,25 @@ function createSourceSelectorWindowWrapper() {
 
 // On macOS, applications and their menu bar stay active until the user quits
 // explicitly with Cmd + Q.
-app.on("before-quit", () => {
+let lastQuitRefusedNoticeAt = 0;
+
+app.on("before-quit", (event) => {
+	if (process.platform === "darwin" && shouldRefuseQuit()) {
+		// Another app asked Framecast to quit (an "auto quit" utility, usually)
+		// while a recording is starting or running. Keep recording.
+		event.preventDefault();
+		markQuitRefused();
+		console.warn("[main] Refused a quit request from another app during a recording");
+		if (Date.now() - lastQuitRefusedNoticeAt > 60_000 && Notification.isSupported()) {
+			lastQuitRefusedNoticeAt = Date.now();
+			new Notification({
+				title: "Framecast kept recording",
+				body: "Another app asked Framecast to quit. Stop the recording from the menu bar first, then quit.",
+				silent: true,
+			}).show();
+		}
+		return;
+	}
 	isAppQuitting = true;
 	authCallbacks.close();
 	void clearRecordingTrashUndo().catch((error) =>
@@ -1251,8 +1314,14 @@ app.whenReady().then(async () => {
 		// We use a small delay to allow window.close() to propagate.
 		setTimeout(() => {
 			const windows = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
+			// With the menu bar icon, Framecast lives in the menu bar: closing the
+			// recording bar (or a recording that ends on its own) must not quit it.
+			if (process.platform === "darwin" && tray) {
+				return;
+			}
 			if (windows.length === 0) {
 				console.log("[main] No windows left, quitting app");
+				markQuitFromApp();
 				app.quit();
 			}
 		}, 100);

@@ -19,6 +19,46 @@ import { resolveWindowsWindowBounds } from "../windowsWindowControl";
 
 const execFileAsync = promisify(execFile);
 
+let windowHelperQueue: Promise<unknown> = Promise.resolve();
+const pendingWindowHelperRuns = new Map<string, Promise<{ stdout: string; stderr: string }>>();
+
+/**
+ * Runs the native window helper strictly one at a time. When two processes ask
+ * ScreenCaptureKit for the window list at the same moment, macOS can leave one
+ * of them waiting forever. The helper exits on its own after 12 seconds
+ * (code 3); a run that timed out like that is retried once.
+ */
+function runWindowListHelper(
+	args: string[],
+	options: { timeout: number; maxBuffer?: number },
+): Promise<{ stdout: string; stderr: string }> {
+	const run = async () => {
+		const binaryPath = await ensureNativeWindowListBinary();
+		try {
+			return await execFileAsync(binaryPath, args, options);
+		} catch (error) {
+			const code = (error as { code?: number | string }).code;
+			if (code === 3 && args[0] !== "--focus") {
+				return await execFileAsync(binaryPath, args, options);
+			}
+			throw error;
+		}
+	};
+	// An identical request already waiting (window tracking polls four times a
+	// second) shares that run instead of queueing another one.
+	const key = args.join(" ");
+	const pending = pendingWindowHelperRuns.get(key);
+	if (pending) {
+		return pending;
+	}
+	const result = windowHelperQueue.then(run, run);
+	pendingWindowHelperRuns.set(key, result);
+	windowHelperQueue = result
+		.catch(() => undefined)
+		.finally(() => pendingWindowHelperRuns.delete(key));
+	return result;
+}
+
 let lastNativeWindowListError: string | null = null;
 
 /**
@@ -30,9 +70,78 @@ export function getLastNativeWindowListError() {
 	return lastNativeWindowListError;
 }
 
-export async function getNativeMacWindowSources(options?: { maxAgeMs?: number }) {
+/**
+ * Brings windows that are minimized, hidden, or on another desktop on screen,
+ * the way Zoom does when sharing starts, because macOS can only record what is
+ * on screen. Visible windows are left alone. Resolves with the ids that are
+ * on screen afterwards, or null when the helper could not run.
+ */
+export async function focusNativeMacWindows(
+	ids: number[],
+): Promise<{ onScreen: number[]; offScreen: number[] } | null> {
+	const wanted = ids.filter((id) => Number.isInteger(id) && id > 0);
+	if (process.platform !== "darwin" || wanted.length === 0) {
+		return null;
+	}
+	try {
+		const { stdout } = await runWindowListHelper(["--focus", wanted.join(",")], {
+			timeout: 2500 * wanted.length + 1000,
+		});
+		const parsed = JSON.parse(stdout) as { onScreen?: number[]; offScreen?: number[] };
+		return {
+			onScreen: Array.isArray(parsed.onScreen) ? parsed.onScreen : [],
+			offScreen: Array.isArray(parsed.offScreen) ? parsed.offScreen : [],
+		};
+	} catch (error) {
+		console.warn("[window-list] Could not bring windows on screen:", error);
+		return null;
+	}
+}
+
+export async function getNativeMacWindowSources(options?: {
+	maxAgeMs?: number;
+	/** Attach a JPEG preview of each window, fitting this size. */
+	thumbnailSize?: { width: number; height: number };
+	/** Only list these window ids. */
+	ids?: number[];
+}) {
 	if (process.platform !== "darwin") {
 		return [] as NativeMacWindowSource[];
+	}
+
+	// Previews and id filters are one-off requests; they never touch the cache
+	// that cursor and highlight lookups rely on.
+	const args: string[] = [];
+	if (options?.thumbnailSize) {
+		args.push(
+			"--thumbnails",
+			`${Math.round(options.thumbnailSize.width)}x${Math.round(options.thumbnailSize.height)}`,
+		);
+	}
+	if (options?.ids?.length) {
+		args.push("--ids", options.ids.join(","));
+	}
+	if (args.length > 0) {
+		try {
+			const { stdout } = await runWindowListHelper(args, {
+				timeout: 30000,
+				maxBuffer: 64 * 1024 * 1024,
+			});
+			const parsed = JSON.parse(stdout);
+			lastNativeWindowListError = null;
+			return Array.isArray(parsed)
+				? (parsed.filter(
+						(entry: Partial<NativeMacWindowSource>) =>
+							typeof entry?.id === "string" && typeof entry?.name === "string",
+					) as NativeMacWindowSource[])
+				: [];
+		} catch (error) {
+			const details = error as { stderr?: string; message?: string };
+			lastNativeWindowListError =
+				(details.stderr || details.message || String(error)).trim() || "unknown error";
+			console.warn("[window-list] Native window listing failed:", lastNativeWindowListError);
+			return [] as NativeMacWindowSource[];
+		}
 	}
 
 	const maxAgeMs = options?.maxAgeMs ?? 5000;
@@ -42,8 +151,7 @@ export async function getNativeMacWindowSources(options?: { maxAgeMs?: number })
 	}
 
 	try {
-		const binaryPath = await ensureNativeWindowListBinary();
-		const { stdout } = await execFileAsync(binaryPath, [], {
+		const { stdout } = await runWindowListHelper([], {
 			timeout: 30000,
 			maxBuffer: 10 * 1024 * 1024,
 		});
@@ -110,7 +218,10 @@ export async function resolveMacWindowBounds(source: SelectedSource): Promise<Wi
 	}
 
 	try {
-		const nativeSources = await getNativeMacWindowSources({ maxAgeMs: 250 });
+		// Ask about this one window only. That path reads the window server
+		// directly instead of ScreenCaptureKit, so polling it during a
+		// recording never competes with the recorder's own requests.
+		const nativeSources = await getNativeMacWindowSources({ ids: [windowId] });
 		const matchedSource = nativeSources.find((entry) => parseWindowId(entry.id) === windowId);
 		return getWindowBoundsFromNativeSource(matchedSource);
 	} catch {

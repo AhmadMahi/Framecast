@@ -6,6 +6,7 @@ import { app, BrowserWindow, dialog, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import { USER_DATA_PATH } from "./appPaths";
 import { readAppSetting, writeAppSetting } from "./appSettingsStore";
+import { quitWasRefused } from "./quitGuard";
 import { EXPERIMENTAL_UPDATE_DESCRIPTION, getUpdateChannelConfiguration } from "./updateChannel";
 
 const PRODUCT_NAME = "Framecast";
@@ -994,6 +995,9 @@ export function setupAutoUpdates(
 	}, UPDATE_CHECK_INTERVAL_MS);
 
 	app.on("before-quit", () => {
+		if (quitWasRefused()) {
+			return;
+		}
 		clearDeferredReminderTimer();
 		clearDevPreviewProgressTimer();
 		if (initialCheckTimer) {

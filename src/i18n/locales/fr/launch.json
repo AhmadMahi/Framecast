@@ -55,8 +55,8 @@
 			"checkingTitle": "Vérification des mises à jour...",
 			"downloadingTitle": "Téléchargement de la mise à jour...",
 			"errorTitle": "Échec de la vérification des mises à jour. Cliquez pour réessayer.",
-			"upToDateTitle": "Recordly {{version}} est à jour.",
-			"availableTitle": "Recordly {{version}} est disponible.",
+			"upToDateTitle": "Framecast {{version}} est à jour.",
+			"availableTitle": "Framecast {{version}} est disponible.",
 			"availableGenericTitle": "Une mise à jour est disponible."
 		},
 		"pauseRecording": "Mettre en pause",
@@ -69,7 +69,8 @@
 		"startRecording": "Démarrer l’enregistrement",
 		"stopRecording": "Arrêter l’enregistrement",
 		"on": "Oui",
-		"off": "Non"
+		"off": "Non",
+		"nowRecording": "Enregistrement"
 	},
 	"sourceSelector": {
 		"loadingSources": "Chargement des sources...",
@@ -83,10 +84,10 @@
 		"share": "Partager"
 	},
 	"permissions": {
-		"screenRecordingNeeded": "Recordly nécessite l’autorisation d’enregistrement d’écran avant de commencer. Les paramètres système ont été ouverts. Après l’avoir activée, quittez et relancez Recordly.",
-		"screenRecordingMissing": "L’autorisation d’enregistrement d’écran est toujours manquante. Les paramètres système ont été ouverts à nouveau. Activez-la, puis quittez et relancez Recordly avant d’enregistrer.",
-		"accessibilityNeeded": "Recordly nécessite également l’autorisation d’accessibilité pour le suivi du curseur. Les paramètres système ont été ouverts. Après l’avoir activée, quittez et relancez Recordly.",
-		"accessibilityMissing": "L’autorisation d’accessibilité est toujours manquante. Les paramètres système ont été ouverts à nouveau. Activez-la, puis quittez et relancez Recordly avant d’enregistrer.",
+		"screenRecordingNeeded": "Framecast nécessite l’autorisation d’enregistrement d’écran avant de commencer. Les paramètres système ont été ouverts. Après l’avoir activée, quittez et relancez Framecast.",
+		"screenRecordingMissing": "L’autorisation d’enregistrement d’écran est toujours manquante. Les paramètres système ont été ouverts à nouveau. Activez-la, puis quittez et relancez Framecast avant d’enregistrer.",
+		"accessibilityNeeded": "Framecast nécessite également l’autorisation d’accessibilité pour le suivi du curseur. Les paramètres système ont été ouverts. Après l’avoir activée, quittez et relancez Framecast.",
+		"accessibilityMissing": "L’autorisation d’accessibilité est toujours manquante. Les paramètres système ont été ouverts à nouveau. Activez-la, puis quittez et relancez Framecast avant d’enregistrer.",
 		"selectSource": "Veuillez sélectionner une source à enregistrer",
 		"systemAudioUnavailable": "L’audio système n’est pas disponible pour cette source. L’enregistrement continuera sans audio système.",
 		"microphoneDenied": "L’accès au microphone a été refusé. L’enregistrement continuera sans audio du microphone.",
@@ -96,7 +97,7 @@
 	"updateToast": {
 		"availableTitle": "Mise à jour disponible",
 		"experimentalAvailableTitle": "Mise à jour expérimentale disponible",
-		"experimentalDescription": "Vous avez activé les mises à jour expérimentales, vous pouvez donc tester la dernière mise à jour de Recordly avant sa disponibilité générale.",
+		"experimentalDescription": "Vous avez activé les mises à jour expérimentales, vous pouvez donc tester la dernière mise à jour de Framecast avant sa disponibilité générale.",
 		"downloadingTitle": "Téléchargement de la mise à jour",
 		"readyTitle": "Prêt à redémarrer",
 		"checkErrorTitle": "Impossible de vérifier les mises à jour",
@@ -137,6 +138,12 @@
 		"noWindows": "Aucune fenêtre ouverte. Ouvrez une app, puis cliquez sur Actualiser.",
 		"on": "Oui",
 		"off": "Non",
-		"needsMic": "Nécessite un micro"
+		"needsMic": "Nécessite un micro",
+		"close": "Fermer",
+		"noPreview": "Pas d'aperçu hors écran",
+		"defaultMicrophone": "Par défaut du système",
+		"defaultMicrophoneNamed": "Par défaut du système ({{name}})",
+		"micBlocked": "Activez l'accès dans Réglages",
+		"micAllow": "Autorisez l'accès pour lister les micros"
 	}
 }

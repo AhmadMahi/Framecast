@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
 	AppWindowIcon,
 	ArrowClockwiseIcon,
@@ -9,6 +8,7 @@ import {
 	MicrophoneIcon,
 	MonitorIcon,
 	SpeakerHighIcon,
+	XIcon,
 } from "@/components/ui/icons";
 import { useScopedT } from "@/contexts/I18nContext";
 import { useMicrophoneDevices } from "@/hooks/useMicrophoneDevices";
@@ -17,6 +17,7 @@ import "./launchTheme.css";
 
 type Intent = "record" | "select";
 type NoiseChoice = "off" | "light" | "standard" | "strong" | "studio";
+type MicAccess = "unknown" | "granted" | "denied" | "restricted" | "not-determined";
 type Selection = { kind: "screen"; id: string } | { kind: "windows"; ids: string[] } | null;
 
 const NOISE_CHOICES: NoiseChoice[] = ["off", "light", "standard", "strong", "studio"];
@@ -46,6 +47,11 @@ function mostCommon(values: string[]): string | undefined {
 		}
 	}
 	return best;
+}
+
+/** Drops the USB vendor/product suffix Chromium adds, e.g. "Mic (046d:0825)". */
+function cleanMicName(label: string): string {
+	return label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, "").trim();
 }
 
 function fetchSources() {
@@ -95,8 +101,29 @@ export function ShareWindow() {
 	const [systemAudio, setSystemAudio] = useState(false);
 	const [noise, setNoise] = useState<NoiseChoice>("strong");
 	const [busy, setBusy] = useState(false);
+	const [micAccess, setMicAccess] = useState<MicAccess>("unknown");
+	const [micRefresh, setMicRefresh] = useState(0);
 
-	const { devices: microphones } = useMicrophoneDevices(true, savedMicId);
+	const { devices: microphones } = useMicrophoneDevices(true, savedMicId, micRefresh);
+
+	/**
+	 * Without microphone access Chromium lists one nameless device. Ask macOS
+	 * (its own prompt, shown once), then list the microphones again by name.
+	 */
+	const ensureMicAccess = useCallback(async () => {
+		try {
+			const result = await window.electronAPI.requestMicrophoneAccess?.();
+			if (!result) return;
+			setMicAccess((result.status as MicAccess) ?? "unknown");
+			if (result.status === "granted") setMicRefresh((value) => value + 1);
+		} catch (error) {
+			console.warn("Could not check microphone access:", error);
+		}
+	}, []);
+
+	const micsUnnamed =
+		microphones.length > 0 && microphones.every((device) => device.deviceId === "");
+	const micBlocked = micAccess === "denied" || micAccess === "restricted";
 
 	const screens = useMemo(
 		() => sources.filter((source) => source.id.startsWith("screen:")),
@@ -153,6 +180,8 @@ export function ShareWindow() {
 						prefs.microphoneEnabled ? (prefs.microphoneDeviceId ?? "default") : "off",
 					);
 					setSystemAudio(Boolean(prefs.systemAudioEnabled));
+					// The microphone is already on, so make sure it can be named and used.
+					if (prefs.microphoneEnabled) void ensureMicAccess();
 				}
 				if (enhancement?.settings) {
 					setNoise(
@@ -169,7 +198,7 @@ export function ShareWindow() {
 		return () => {
 			active = false;
 		};
-	}, [checkWindowsBlocked]);
+	}, [checkWindowsBlocked, ensureMicAccess]);
 
 	const refresh = useCallback(async () => {
 		setRefreshing(true);
@@ -197,11 +226,11 @@ export function ShareWindow() {
 
 	// If the saved microphone is gone, fall back to the first available one.
 	useEffect(() => {
-		if (micChoice === "off" || microphones.length === 0) return;
+		if (micChoice === "off" || microphones.length === 0 || micsUnnamed) return;
 		if (!microphones.some((device) => device.deviceId === micChoice)) {
 			setMicChoice(microphones[0].deviceId);
 		}
-	}, [micChoice, microphones]);
+	}, [micChoice, microphones, micsUnnamed]);
 
 	const toggleWindow = useCallback((id: string) => {
 		setSelection((current) => {
@@ -304,11 +333,24 @@ export function ShareWindow() {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, [cancel, confirm]);
 
+	/** macOS lists the system default input as "Default - <name>". */
+	const micOptionLabel = (device: { deviceId: string; label: string }) => {
+		const name = cleanMicName(device.label);
+		if (device.deviceId !== "default") return name;
+		const actual = name.replace(/^Default\s*-\s*/i, "");
+		return t("share.defaultMicrophoneNamed", "System default ({{name}})", { name: actual });
+	};
+	const chosenMic =
+		micChoice === "off"
+			? undefined
+			: (microphones.find((device) => device.deviceId === micChoice) ??
+				microphones.find((device) => device.deviceId === "default"));
 	const micLabel =
 		micChoice === "off"
 			? t("share.noMicrophone", "No microphone")
-			: (microphones.find((device) => device.deviceId === micChoice)?.label ??
-				t("share.microphone", "Microphone"));
+			: chosenMic && chosenMic.deviceId !== ""
+				? micOptionLabel(chosenMic)
+				: t("share.defaultMicrophone", "System default");
 	const noiseLabel = (choice: NoiseChoice) =>
 		t(`share.noise_${choice}`, choice.charAt(0).toUpperCase() + choice.slice(1));
 
@@ -336,10 +378,15 @@ export function ShareWindow() {
 									className={styles.thumbFallbackIcon}
 								/>
 							) : isScreen ? (
-								<MonitorIcon size={40} />
+								<MonitorIcon size={36} />
 							) : (
-								<AppWindowIcon size={40} />
+								<AppWindowIcon size={36} />
 							)}
+							{!isScreen && !source.isFullScreen ? (
+								<span className={styles.thumbCaption}>
+									{t("share.noPreview", "No preview while off screen")}
+								</span>
+							) : null}
 						</div>
 					)}
 					{selected ? (
@@ -386,10 +433,19 @@ export function ShareWindow() {
 					disabled={loading || refreshing}
 				>
 					<ArrowClockwiseIcon
-						size={14}
+						size={13}
 						className={refreshing ? styles.refreshSpinning : undefined}
 					/>
 					{t("share.refresh", "Refresh")}
+				</button>
+				<button
+					type="button"
+					className={styles.close}
+					onClick={cancel}
+					aria-label={t("share.close", "Close")}
+					title={t("share.close", "Close")}
+				>
+					<XIcon size={13} />
 				</button>
 			</header>
 
@@ -426,14 +482,15 @@ export function ShareWindow() {
 										)}
 									</span>
 								</div>
-								<Button
-									size="sm"
+								<button
+									type="button"
+									className={styles.secondaryButton}
 									onClick={() =>
 										void window.electronAPI.openScreenRecordingPreferences?.()
 									}
 								>
 									{t("share.openSettings", "Open System Settings")}
-								</Button>
+								</button>
 							</div>
 						) : windows.length === 0 ? (
 							<div className={styles.empty}>
@@ -460,29 +517,57 @@ export function ShareWindow() {
 
 			<footer className={styles.footer}>
 				<div className={styles.controls}>
-					<label className={styles.control}>
-						<MicrophoneIcon size={17} className={styles.controlIcon} />
-						<span className={styles.controlText}>
-							<span className={styles.controlLabel}>
-								{t("share.microphone", "Microphone")}
-							</span>
-							<span className={styles.controlValue}>{micLabel}</span>
-						</span>
-						<CaretDown size={12} className={styles.controlCaret} />
-						<select
-							className={styles.controlSelect}
-							aria-label={t("share.microphone", "Microphone")}
-							value={micChoice}
-							onChange={(event) => setMicChoice(event.target.value)}
+					{micBlocked || micsUnnamed ? (
+						<button
+							type="button"
+							className={`${styles.control} ${styles.controlAttention}`}
+							onClick={() =>
+								micBlocked
+									? void window.electronAPI.openMicrophonePreferences?.()
+									: void ensureMicAccess()
+							}
 						>
-							<option value="off">{t("share.noMicrophone", "No microphone")}</option>
-							{microphones.map((device) => (
-								<option key={device.deviceId} value={device.deviceId}>
-									{device.label}
+							<MicrophoneIcon size={17} className={styles.controlIcon} />
+							<span className={styles.controlText}>
+								<span className={styles.controlLabel}>
+									{t("share.microphone", "Microphone")}
+								</span>
+								<span className={styles.controlValue}>
+									{micBlocked
+										? t("share.micBlocked", "Turn on access in Settings")
+										: t("share.micAllow", "Allow access to list microphones")}
+								</span>
+							</span>
+						</button>
+					) : (
+						<label className={styles.control}>
+							<MicrophoneIcon size={17} className={styles.controlIcon} />
+							<span className={styles.controlText}>
+								<span className={styles.controlLabel}>
+									{t("share.microphone", "Microphone")}
+								</span>
+								<span className={styles.controlValue} title={micLabel}>
+									{micLabel}
+								</span>
+							</span>
+							<CaretDown size={12} className={styles.controlCaret} />
+							<select
+								className={styles.controlSelect}
+								aria-label={t("share.microphone", "Microphone")}
+								value={micChoice}
+								onChange={(event) => setMicChoice(event.target.value)}
+							>
+								<option value="off">
+									{t("share.noMicrophone", "No microphone")}
 								</option>
-							))}
-						</select>
-					</label>
+								{microphones.map((device) => (
+									<option key={device.deviceId} value={device.deviceId}>
+										{micOptionLabel(device)}
+									</option>
+								))}
+							</select>
+						</label>
+					)}
 
 					<button
 						type="button"
@@ -537,14 +622,24 @@ export function ShareWindow() {
 				</div>
 
 				<div className={styles.actions}>
-					<Button variant="secondary" size="sm" onClick={cancel} disabled={busy}>
+					<button
+						type="button"
+						className={styles.secondaryButton}
+						onClick={cancel}
+						disabled={busy}
+					>
 						{t("share.cancel", "Cancel")}
-					</Button>
-					<Button size="sm" onClick={() => void confirm()} disabled={!selection || busy}>
+					</button>
+					<button
+						type="button"
+						className={styles.primaryButton}
+						onClick={() => void confirm()}
+						disabled={!selection || busy}
+					>
 						{intent === "record"
 							? t("share.startRecording", "Start recording")
 							: t("share.select", "Select")}
-					</Button>
+					</button>
 				</div>
 			</footer>
 		</div>

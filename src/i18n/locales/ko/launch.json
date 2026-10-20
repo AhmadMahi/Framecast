@@ -55,8 +55,8 @@
 			"checkingTitle": "업데이트를 확인하는 중...",
 			"downloadingTitle": "업데이트를 다운로드하는 중...",
 			"errorTitle": "업데이트 확인에 실패했습니다. 클릭하여 다시 시도하세요.",
-			"upToDateTitle": "Recordly {{version}}은(는) 최신 버전입니다.",
-			"availableTitle": "Recordly {{version}}을(를) 사용할 수 있습니다.",
+			"upToDateTitle": "Framecast {{version}}은(는) 최신 버전입니다.",
+			"availableTitle": "Framecast {{version}}을(를) 사용할 수 있습니다.",
 			"availableGenericTitle": "업데이트를 사용할 수 있습니다."
 		},
 		"pauseRecording": "녹화 일시정지",
@@ -69,7 +69,8 @@
 		"startRecording": "녹화 시작",
 		"stopRecording": "녹화 중지",
 		"on": "켬",
-		"off": "끔"
+		"off": "끔",
+		"nowRecording": "녹화 중"
 	},
 	"sourceSelector": {
 		"loadingSources": "소스를 불러오는 중...",
@@ -83,10 +84,10 @@
 		"share": "공유"
 	},
 	"permissions": {
-		"screenRecordingNeeded": "녹화를 시작하기 전에 Recordly에 화면 녹화 권한이 필요합니다. 시스템 설정을 열었습니다. 권한을 허용한 뒤 Recordly를 종료하고 다시 실행해 주세요.",
-		"screenRecordingMissing": "화면 녹화 권한이 아직 없습니다. 시스템 설정을 다시 열었습니다. 권한을 허용한 뒤 Recordly를 종료하고 다시 실행한 후 녹화를 시작해 주세요.",
-		"accessibilityNeeded": "커서 추적을 위해 Recordly에 손쉬운 사용 권한도 필요합니다. 시스템 설정을 열었습니다. 권한을 허용한 뒤 Recordly를 종료하고 다시 실행해 주세요.",
-		"accessibilityMissing": "손쉬운 사용 권한이 아직 없습니다. 시스템 설정을 다시 열었습니다. 권한을 허용한 뒤 Recordly를 종료하고 다시 실행한 후 녹화를 시작해 주세요.",
+		"screenRecordingNeeded": "녹화를 시작하기 전에 Framecast에 화면 녹화 권한이 필요합니다. 시스템 설정을 열었습니다. 권한을 허용한 뒤 Framecast를 종료하고 다시 실행해 주세요.",
+		"screenRecordingMissing": "화면 녹화 권한이 아직 없습니다. 시스템 설정을 다시 열었습니다. 권한을 허용한 뒤 Framecast를 종료하고 다시 실행한 후 녹화를 시작해 주세요.",
+		"accessibilityNeeded": "커서 추적을 위해 Framecast에 손쉬운 사용 권한도 필요합니다. 시스템 설정을 열었습니다. 권한을 허용한 뒤 Framecast를 종료하고 다시 실행해 주세요.",
+		"accessibilityMissing": "손쉬운 사용 권한이 아직 없습니다. 시스템 설정을 다시 열었습니다. 권한을 허용한 뒤 Framecast를 종료하고 다시 실행한 후 녹화를 시작해 주세요.",
 		"selectSource": "녹화할 소스를 선택해 주세요",
 		"systemAudioUnavailable": "이 소스에서는 시스템 오디오를 사용할 수 없습니다. 시스템 오디오 없이 녹화를 계속합니다.",
 		"microphoneDenied": "마이크 접근이 거부되었습니다. 마이크 오디오 없이 녹화를 계속합니다.",
@@ -96,7 +97,7 @@
 	"updateToast": {
 		"availableTitle": "업데이트 사용 가능",
 		"experimentalAvailableTitle": "실험적 업데이트 사용 가능",
-		"experimentalDescription": "실험적 업데이트를 선택했으므로 Recordly의 최신 업데이트가 널리 제공되기 전에 먼저 테스트해 볼 수 있습니다.",
+		"experimentalDescription": "실험적 업데이트를 선택했으므로 Framecast의 최신 업데이트가 널리 제공되기 전에 먼저 테스트해 볼 수 있습니다.",
 		"downloadingTitle": "업데이트 다운로드 중",
 		"readyTitle": "다시 시작할 준비 완료",
 		"checkErrorTitle": "업데이트를 확인할 수 없습니다",
@@ -137,6 +138,12 @@
 		"noWindows": "열린 창이 없습니다. 앱을 연 다음 새로 고침을 누르세요.",
 		"on": "켬",
 		"off": "끔",
-		"needsMic": "마이크 필요"
+		"needsMic": "마이크 필요",
+		"close": "닫기",
+		"noPreview": "화면 밖에서는 미리보기 없음",
+		"defaultMicrophone": "시스템 기본값",
+		"defaultMicrophoneNamed": "시스템 기본값 ({{name}})",
+		"micBlocked": "설정에서 접근 허용",
+		"micAllow": "마이크 목록을 보려면 접근 허용"
 	}
 }

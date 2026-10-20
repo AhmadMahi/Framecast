@@ -2284,11 +2284,14 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			}
 		} catch (error) {
 			console.error("Failed to start recording:", error);
-			alert(
-				error instanceof Error
-					? `Failed to start recording: ${error.message}`
-					: "Failed to start recording",
-			);
+			const detail = error instanceof Error ? error.message : String(error);
+			// A native dialog from the main process: an alert() inside the
+			// transparent, click-through recording bar is easy to miss.
+			if (typeof window.electronAPI?.showRecordingError === "function") {
+				void window.electronAPI.showRecordingError(detail);
+			} else {
+				alert(`Failed to start recording: ${detail}`);
+			}
 			setRecording(false);
 			if (nativeScreenRecording.current) {
 				await discardActiveNativeCapture();

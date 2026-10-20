@@ -14,6 +14,12 @@ import { useVideoDevices } from "@/hooks/useVideoDevices";
 import styles from "./MenuBarPanel.module.css";
 import "./launchTheme.css";
 
+type RecordingPreview = {
+	title: string;
+	kind: string;
+	previews: Array<{ label: string; image: string | null }>;
+};
+
 type ExpandedSection = "microphone" | "camera" | null;
 
 function formatElapsed(totalSeconds: number) {
@@ -78,6 +84,29 @@ export function MenuBarPanel() {
 	const [webcamEnabled, setWebcamEnabled] = useState(false);
 	const [webcamDeviceId, setWebcamDeviceId] = useState<string | undefined>();
 	const [busy, setBusy] = useState(false);
+	const [preview, setPreview] = useState<RecordingPreview | null>(null);
+
+	// While recording, show what is being captured. Refreshed each time the
+	// panel opens, so the snapshot is current without any continuous work.
+	useEffect(() => {
+		if (!recording) {
+			setPreview(null);
+			return;
+		}
+
+		let active = true;
+		const load = () => {
+			void window.electronAPI?.getRecordingPreview?.().then((result) => {
+				if (active) setPreview(result ?? null);
+			});
+		};
+		load();
+		const removeShownListener = window.electronAPI?.onMenuBarPanelShown?.(load);
+		return () => {
+			active = false;
+			removeShownListener?.();
+		};
+	}, [recording]);
 
 	const { devices: microphones } = useMicrophoneDevices(
 		expanded === "microphone",
@@ -188,6 +217,39 @@ export function MenuBarPanel() {
 					</span>
 				) : null}
 			</div>
+
+			{recording && preview && preview.title ? (
+				<div className={styles.preview}>
+					{preview.previews.length > 0 ? (
+						<div
+							className={`${styles.previewGrid} ${
+								preview.previews.length > 1 ? styles.previewGridMany : ""
+							}`}
+						>
+							{preview.previews.map((item, index) =>
+								item.image ? (
+									<img
+										key={index}
+										src={item.image}
+										alt={item.label}
+										className={styles.previewImage}
+									/>
+								) : (
+									<div key={index} className={styles.previewPlaceholder}>
+										{item.label}
+									</div>
+								),
+							)}
+						</div>
+					) : null}
+					<div className={styles.previewLabel}>
+						<span className={styles.previewLabelPrefix}>
+							{t("recording.nowRecording", "Recording")}
+						</span>
+						<span className={styles.previewLabelTitle}>{preview.title}</span>
+					</div>
+				</div>
+			) : null}
 
 			<button
 				type="button"

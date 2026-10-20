@@ -83,7 +83,7 @@
 		"connectedZoomDuration": "連接縮放時間",
 		"connectedZoomEasing": "連接平移曲線",
 		"zoomEasingOptions": {
-			"recordly": "Recordly",
+			"recordly": "Framecast",
 			"glide": "滑行",
 			"smooth": "平滑",
 			"snappy": "俐落",
@@ -254,7 +254,7 @@
 		"deleteRegion": "刪除音訊"
 	},
 	"updates": {
-		"experimentalDescription": "你已選擇接收實驗性更新，因此可以在 Recordly 最新更新廣泛推出之前選擇先行測試。",
+		"experimentalDescription": "你已選擇接收實驗性更新，因此可以在 Framecast 最新更新廣泛推出之前選擇先行測試。",
 		"title": "更新",
 		"check": "檢查更新",
 		"checkDescription": "在發布頻道中尋找較新版本。",

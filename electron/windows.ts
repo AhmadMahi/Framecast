@@ -1,20 +1,21 @@
-import { isHudInEditorMode } from "./hudEditorMode";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, ipcMain } from "electron";
 import {
-	supportsHudCaptureProtection,
 	shouldProtectHudCapture,
+	supportsHudCaptureProtection,
 } from "../src/lib/hudCaptureProtection";
 import { USER_DATA_PATH } from "./appPaths";
+import { isHudInEditorMode } from "./hudEditorMode";
 import {
 	getHudOverlayWindowBounds,
 	resizeHudOverlayFallbackBounds,
 	shouldExpandHudOverlayFallback,
 } from "./hudOverlayBounds";
 import { getHudOverlayTaskbarOptions } from "./hudOverlayWindowOptions";
+import { isSharingMacWindows } from "./ipc/state";
 import { getPackagedRendererBaseUrl } from "./rendererServer";
 
 const electronWindowsDir = path.dirname(fileURLToPath(import.meta.url));
@@ -1140,7 +1141,8 @@ export function createCountdownWindow(): BrowserWindow {
 
 	win.webContents.on("did-finish-load", () => {
 		if (!win.isDestroyed()) {
-			if (process.platform === "win32") {
+			// Showing it without focus keeps a shared window's desktop in front.
+			if (process.platform === "win32" || isSharingMacWindows()) {
 				win.showInactive();
 				win.moveTop();
 			} else {
@@ -1303,6 +1305,7 @@ export function showMenuBarPanelWindow(anchor: { x: number; y: number }): Browse
 				win.setBounds(getMenuBarPanelBounds(anchor, win.getBounds().height), false);
 				win.show();
 				win.focus();
+				win.webContents.send("menu-bar-panel:shown");
 			}
 		});
 		return win;
@@ -1310,6 +1313,7 @@ export function showMenuBarPanelWindow(anchor: { x: number; y: number }): Browse
 
 	win.show();
 	win.focus();
+	win.webContents.send("menu-bar-panel:shown");
 	return win;
 }
 
@@ -1398,11 +1402,20 @@ export function openShareWindow(intent: ShareWindowIntent): BrowserWindow {
 		y: Math.round(workArea.y + (workArea.height - height) / 2),
 		show: false,
 		title: "Choose what to record",
+		frame: false,
+		transparent: true,
+		backgroundColor: "#00000000",
+		hasShadow: true,
 		minimizable: false,
 		maximizable: false,
 		fullscreenable: false,
+		// Same frosted, rounded look as the menu bar panel.
 		...(process.platform === "darwin"
-			? { titleBarStyle: "hiddenInset" as const, vibrancy: "under-window" as const }
+			? {
+					vibrancy: "popover" as const,
+					visualEffectState: "active" as const,
+					roundedCorners: true,
+				}
 			: {}),
 		webPreferences: {
 			preload: path.join(electronWindowsDir, "preload.mjs"),

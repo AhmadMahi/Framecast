@@ -55,8 +55,8 @@
 			"checkingTitle": "Checking for updates...",
 			"downloadingTitle": "Downloading update...",
 			"errorTitle": "Update check failed. Click to retry.",
-			"upToDateTitle": "Recordly {{version}} is up to date.",
-			"availableTitle": "Recordly {{version}} is available.",
+			"upToDateTitle": "Framecast {{version}} is up to date.",
+			"availableTitle": "Framecast {{version}} is available.",
 			"availableGenericTitle": "An update is available."
 		},
 		"pauseRecording": "Pause recording",
@@ -69,7 +69,8 @@
 		"startRecording": "Start recording",
 		"stopRecording": "Stop recording",
 		"on": "On",
-		"off": "Off"
+		"off": "Off",
+		"nowRecording": "Recording"
 	},
 	"sourceSelector": {
 		"loadingSources": "Loading sources...",
@@ -83,10 +84,10 @@
 		"share": "Share"
 	},
 	"permissions": {
-		"screenRecordingNeeded": "Recordly needs Screen Recording permission before you start. System Settings has been opened. After enabling it, quit and reopen Recordly.",
-		"screenRecordingMissing": "Screen Recording permission is still missing. System Settings has been opened again. Enable it, then quit and reopen Recordly before recording.",
-		"accessibilityNeeded": "Recordly also needs Accessibility permission for cursor tracking. System Settings has been opened. After enabling it, quit and reopen Recordly.",
-		"accessibilityMissing": "Accessibility permission is still missing. System Settings has been opened again. Enable it, then quit and reopen Recordly before recording.",
+		"screenRecordingNeeded": "Framecast needs Screen Recording permission before you start. System Settings has been opened. After enabling it, quit and reopen Framecast.",
+		"screenRecordingMissing": "Screen Recording permission is still missing. System Settings has been opened again. Enable it, then quit and reopen Framecast before recording.",
+		"accessibilityNeeded": "Framecast also needs Accessibility permission for cursor tracking. System Settings has been opened. After enabling it, quit and reopen Framecast.",
+		"accessibilityMissing": "Accessibility permission is still missing. System Settings has been opened again. Enable it, then quit and reopen Framecast before recording.",
 		"selectSource": "Please select a source to record",
 		"systemAudioUnavailable": "System audio is not available for this source. Recording will continue without system audio.",
 		"microphoneDenied": "Microphone access was denied. Recording will continue without microphone audio.",
@@ -96,7 +97,7 @@
 	"updateToast": {
 		"availableTitle": "Update available",
 		"experimentalAvailableTitle": "Experimental update available",
-		"experimentalDescription": "You've opted into experimental updates so you have the choice to test the latest update of Recordly before it's widely available.",
+		"experimentalDescription": "You've opted into experimental updates so you have the choice to test the latest update of Framecast before it's widely available.",
 		"downloadingTitle": "Downloading your update",
 		"readyTitle": "Ready to restart",
 		"checkErrorTitle": "Couldn't check for updates",
@@ -137,6 +138,12 @@
 		"noWindows": "No open windows found. Open an app, then press Refresh.",
 		"on": "On",
 		"off": "Off",
-		"needsMic": "Needs a microphone"
+		"needsMic": "Needs a microphone",
+		"close": "Close",
+		"noPreview": "No preview while off screen",
+		"defaultMicrophone": "System default",
+		"defaultMicrophoneNamed": "System default ({{name}})",
+		"micBlocked": "Turn on access in Settings",
+		"micAllow": "Allow access to list microphones"
 	}
 }

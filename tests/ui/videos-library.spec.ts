@@ -228,6 +228,8 @@ test("HUD source controls have no default gray fill or outline", async ({ page }
 			{ id: "screen:1:0", name: "Built-in Display", thumbnail: "", display_id: "1" },
 			{ id: "window:2:0", name: "Another Window", thumbnail: "", display_id: "" },
 		];
+		// The in-bar source list is the Windows path; macOS opens the Share window.
+		window.electronAPI.getPlatform = async () => "win32";
 	});
 	await page.goto("/?windowType=hud-overlay");
 	const source = page.getByRole("button", { name: "Built-in Display", exact: true });

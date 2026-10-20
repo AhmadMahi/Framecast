@@ -8,7 +8,15 @@ export interface MicrophoneDevice {
 
 let hasRequestedMicrophoneLabels = false;
 
-export function useMicrophoneDevices(enabled: boolean = true, preferredDeviceId?: string) {
+/**
+ * Lists the microphones. Pass a new `refreshKey` to list them again, for
+ * example after the user grants microphone access.
+ */
+export function useMicrophoneDevices(
+	enabled: boolean = true,
+	preferredDeviceId?: string,
+	refreshKey = 0,
+) {
 	const [devices, setDevices] = useState<MicrophoneDevice[]>([]);
 	const [selectedDeviceId, setSelectedDeviceId] = useState<string>("default");
 	const [isLoading, setIsLoading] = useState(false);
@@ -28,30 +36,36 @@ export function useMicrophoneDevices(enabled: boolean = true, preferredDeviceId?
 				setIsLoading(true);
 				setError(null);
 
-				let allDevices = await navigator.mediaDevices.enumerateDevices();
-				let audioInputs = allDevices
-					.filter((device) => device.kind === "audioinput")
-					.map((device) => ({
-						deviceId: device.deviceId,
-						label: device.label || `Microphone ${device.deviceId.slice(0, 8)}`,
-						groupId: device.groupId,
-					}));
+				const readInputs = async () =>
+					(await navigator.mediaDevices.enumerateDevices()).filter(
+						(device) => device.kind === "audioinput",
+					);
 
+				let rawInputs = await readInputs();
+
+				// Chromium hides microphone names (and ids) until this page has used
+				// the microphone once. Check the raw labels, before any placeholder
+				// name is filled in, and open the microphone briefly to reveal them.
 				const needsLabelPermission =
-					audioInputs.length > 0 && audioInputs.every((device) => !device.label.trim());
+					rawInputs.length > 0 && rawInputs.every((device) => !device.label.trim());
 
-				if (needsLabelPermission && !hasRequestedMicrophoneLabels) {
+				if (needsLabelPermission && (!hasRequestedMicrophoneLabels || refreshKey > 0)) {
 					hasRequestedMicrophoneLabels = true;
-					permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-					allDevices = await navigator.mediaDevices.enumerateDevices();
-					audioInputs = allDevices
-						.filter((device) => device.kind === "audioinput")
-						.map((device) => ({
-							deviceId: device.deviceId,
-							label: device.label || `Microphone ${device.deviceId.slice(0, 8)}`,
-							groupId: device.groupId,
-						}));
+					try {
+						permissionStream = await navigator.mediaDevices.getUserMedia({
+							audio: true,
+						});
+						rawInputs = await readInputs();
+					} catch (permissionError) {
+						console.warn("Microphone names are unavailable:", permissionError);
+					}
 				}
+
+				const audioInputs = rawInputs.map((device) => ({
+					deviceId: device.deviceId,
+					label: device.label || `Microphone ${device.deviceId.slice(0, 8)}`.trim(),
+					groupId: device.groupId,
+				}));
 
 				if (mounted) {
 					setDevices(audioInputs);
@@ -107,7 +121,7 @@ export function useMicrophoneDevices(enabled: boolean = true, preferredDeviceId?
 			mounted = false;
 			navigator.mediaDevices.removeEventListener("devicechange", handleDeviceChange);
 		};
-	}, [enabled, preferredDeviceId]);
+	}, [enabled, preferredDeviceId, refreshKey]);
 
 	return {
 		devices,

@@ -91,7 +91,6 @@
 		"solidColor": "Cor sólida (censura)",
 		"borderRadius": "Raio da borda"
 	},
-
 	"fontStyles": {
 		"classic": "Classic",
 		"editor": "Editor",
@@ -169,10 +168,13 @@
 		"experimentalBuilds": "Dica: Ative o acesso a versões experimentais nas configurações",
 		"cursorAppearance": "Dica: Você pode personalizar a aparência do cursor"
 	},
-	"account": { "title": "Conta", "comingSoon": "Conta em breve" },
+	"account": {
+		"title": "Conta",
+		"comingSoon": "Conta em breve"
+	},
 	"nativeCaptureUnavailable": {
 		"title": "Nada está quebrado, mas não poderemos renderizar uma sobreposição animada do cursor.",
-		"description": "Seu dispositivo não oferece suporte à captura nativa. Isso pode acontecer por vários motivos que ainda não identificamos. O Recordly continuará funcionando, mas a suavização do cursor ficará indisponível.",
+		"description": "Seu dispositivo não oferece suporte à captura nativa. Isso pode acontecer por vários motivos que ainda não identificamos. O Framecast continuará funcionando, mas a suavização do cursor ficará indisponível.",
 		"confirm": "Entendi"
 	},
 	"exportStatus": {

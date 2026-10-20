@@ -47,6 +47,25 @@ describe("isTrustedCaptureDocumentUrl", () => {
 		expect(isTrustedCaptureDocumentUrl(candidateUrl, TRUSTED_DOCUMENT_BASE_URLS)).toBe(false);
 	});
 
+	it.each([
+		"http://localhost:5173/?windowType=share&intent=record",
+		"http://127.0.0.1:43127/?windowType=share&intent=select",
+		"file:///C:/Program%20Files/Recordly/resources/app.asar/dist/index.html?windowType=share&intent=record",
+	])("accepts the Share window, which lists microphones: %s", (candidateUrl) => {
+		expect(isTrustedCaptureDocumentUrl(candidateUrl, TRUSTED_DOCUMENT_BASE_URLS)).toBe(true);
+	});
+
+	it.each([
+		"http://localhost:5173/?windowType=share",
+		"http://localhost:5173/?windowType=share&intent=other",
+		"http://localhost:5173/?intent=record&windowType=share",
+		"http://localhost:5173/?windowType=share&intent=record&debug=1",
+		"http://localhost:5174/?windowType=share&intent=record",
+		"https://localhost:5173/?windowType=share&intent=record",
+	])("rejects anything but the exact Share window addresses: %s", (candidateUrl) => {
+		expect(isTrustedCaptureDocumentUrl(candidateUrl, TRUSTED_DOCUMENT_BASE_URLS)).toBe(false);
+	});
+
 	it("ignores malformed trusted base URLs instead of throwing", () => {
 		expect(
 			isTrustedCaptureDocumentUrl(DEV_HUD_URL, ["not a url", ...TRUSTED_DOCUMENT_BASE_URLS]),

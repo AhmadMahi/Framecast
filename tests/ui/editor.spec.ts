@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { installDesktopBridge } from "./bridge";
+
 test("editor loads video, switches tools and edits export options", async ({ page }) => {
 	test.setTimeout(120000);
 	const errors: string[] = [];
@@ -108,9 +109,10 @@ test("recorder opens device and source popovers", async ({ page }) => {
 	await page.getByRole("button", { name: "Countdown delay", exact: false }).click();
 	await page.getByRole("button", { name: "5s", exact: true }).click();
 	await expect(page.getByRole("dialog")).toHaveCount(0);
+	// On macOS the source button opens the Zoom-style Share window.
 	await page.getByRole("button", { name: "Built-in Display", exact: true }).click();
-	await expect(page.getByRole("dialog")).toBeVisible();
-	await page.keyboard.press("Escape");
+	await expect(page.locator("html")).toHaveAttribute("data-share-window-intent", "select");
+	await expect(page.getByRole("dialog")).toHaveCount(0);
 	await expect(page.getByRole("button", { name: "More", exact: true })).toHaveCount(0);
 	await page.getByRole("button", { name: "Home", exact: true }).click();
 	await expect(page.locator("html")).toHaveAttribute("data-dashboard-opened", "true");

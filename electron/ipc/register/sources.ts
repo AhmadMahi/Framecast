@@ -1,16 +1,17 @@
-import { createRecordingEditorNavigation } from "../../recordingEditorNavigation";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { app, BrowserWindow, desktopCapturer, ipcMain, systemPreferences } from "electron";
 import type { Display } from "electron";
+import { app, BrowserWindow, desktopCapturer, ipcMain, systemPreferences } from "electron";
+import { createRecordingEditorNavigation } from "../../recordingEditorNavigation";
 import {
-	setHudRecordingPreparationActive,
 	createHudOverlayWindow,
 	getHudOverlayWindow,
 	reassertHudOverlayMousePassthrough,
+	setHudRecordingPreparationActive,
 } from "../../windows";
 import { ALLOW_RECORDLY_WINDOW_CAPTURE } from "../constants";
 import {
+	focusNativeMacWindows,
 	getLastNativeWindowListError,
 	getNativeMacWindowSources,
 	resolveLinuxWindowBounds,
@@ -18,11 +19,11 @@ import {
 	stopWindowBoundsCapture,
 } from "../cursor/bounds";
 import { getDisplayBoundsForSource, getDisplayWorkAreaForSource } from "../recording/ffmpeg";
-import { selectedSource, setSelectedSource } from "../state";
+import { isSharingMacWindows, selectedSource, setSelectedSource } from "../state";
 import type { SelectedSource, WindowBounds } from "../types";
 import { getScreen, parseWindowId } from "../utils";
 import { bringWindowsWindowForward, resolveWindowsWindowBounds } from "../windowsWindowControl";
-import { getScreenSourceIdForDisplay } from "./sourceMapping";
+import { getScreenSourceIdForDisplay, parseCompositeWindowIds } from "./sourceMapping";
 
 const execFileAsync = promisify(execFile);
 const SOURCE_LIST_CACHE_TTL_MS = 1200;
@@ -95,6 +96,9 @@ export async function bringSelectedWindowForward(
 
 	try {
 		if (process.platform === "darwin") {
+			// Un-minimize, unhide, or switch to the window's desktop first, so
+			// ScreenCaptureKit can see it. A no-op for windows already visible.
+			await focusNativeMacWindows([windowId]);
 			const rawAppName = source.appName || source.name?.split(" — ")[0]?.trim();
 			const appName =
 				rawAppName && /^[\w .&()+'-]{1,64}$/.test(rawAppName) ? rawAppName : null;
@@ -188,10 +192,12 @@ export function registerSourceHandlers({
 		const includeScreens = Array.isArray(opts?.types) ? opts.types.includes("screen") : true;
 		const includeWindows = Array.isArray(opts?.types) ? opts.types.includes("window") : true;
 		const includeWindowIcons = Boolean(opts?.fetchWindowIcons);
+		const usesNativeWindows = process.platform === "darwin" && includeWindows;
 		const electronTypes = [
 			...(includeScreens ? ["screen" as const] : []),
-			...(includeWindows ? ["window" as const] : []),
+			...(includeWindows && !usesNativeWindows ? ["window" as const] : []),
 		];
+		const wantsPreviews = (opts?.thumbnailSize?.width ?? 0) >= 64;
 		const electronSources =
 			electronTypes.length > 0
 				? await desktopCapturer
@@ -311,7 +317,9 @@ export function registerSourceHandlers({
 		}
 
 		try {
-			const nativeWindowSources = await getNativeMacWindowSources();
+			const nativeWindowSources = await getNativeMacWindowSources(
+				wantsPreviews ? { thumbnailSize: opts.thumbnailSize } : undefined,
+			);
 			if (nativeWindowSources.length === 0) {
 				// An empty native list means the helper failed (usually missing
 				// permission). Fall through to Electron's own window enumeration.
@@ -378,9 +386,11 @@ export function registerSourceHandlers({
 						name: source.name,
 						originalName: source.name,
 						display_id: source.display_id ?? electronWindowSource?.display_id ?? "",
-						thumbnail: electronWindowSource?.thumbnail
-							? electronWindowSource.thumbnail.toDataURL()
-							: null,
+						thumbnail:
+							source.thumbnail ??
+							(electronWindowSource?.thumbnail
+								? electronWindowSource.thumbnail.toDataURL()
+								: null),
 						appIcon: includeWindowIcons
 							? (source.appIcon ??
 								(electronWindowSource?.appIcon
@@ -405,7 +415,10 @@ export function registerSourceHandlers({
 		} catch (error) {
 			console.warn("Falling back to Electron window enumeration on macOS:", error);
 
-			const windowSources = electronSources
+			const electronWindows = await desktopCapturer
+				.getSources({ ...opts, types: ["window"] })
+				.catch(() => []);
+			const windowSources = electronWindows
 				.filter((source) => source.id.startsWith("window:"))
 				.filter((source) => {
 					const normalizedName = normalizeDesktopSourceName(source.name);
@@ -454,6 +467,8 @@ export function registerSourceHandlers({
 	ipcMain.handle("select-source", async (_, source: SelectedSource) => {
 		if (source.id?.startsWith("window:")) {
 			await bringSelectedWindowForward(source);
+		} else if (source.id?.startsWith("windows:")) {
+			await focusNativeMacWindows(parseCompositeWindowIds(source.id));
 		}
 		setSelectedSource(source);
 		broadcastSelectedSourceChange();
@@ -462,7 +477,10 @@ export function registerSourceHandlers({
 		if (sourceSelectorWin) {
 			sourceSelectorWin.close();
 		}
-		app.focus({ steal: true });
+		// Stay out of the way of a window that was just brought forward.
+		if (!isSharingMacWindows(source)) {
+			app.focus({ steal: true });
+		}
 		return selectedSource;
 	});
 
@@ -644,6 +662,53 @@ body{background:transparent;overflow:hidden;width:100vw;height:100vh}
 		} catch (error) {
 			console.error("Failed to show source highlight:", error);
 			return { success: false };
+		}
+	});
+
+	ipcMain.handle("get-recording-preview", async () => {
+		const source = selectedSource;
+		if (!source?.id) {
+			return { title: "", kind: "none", previews: [] };
+		}
+
+		const previewSize = { width: 480, height: 300 };
+		try {
+			if (source.id.startsWith("screen:")) {
+				const screens = await desktopCapturer.getSources({
+					types: ["screen"],
+					thumbnailSize: previewSize,
+				});
+				const match =
+					screens.find(
+						(screen) => String(screen.display_id) === String(source.display_id),
+					) ?? screens.find((screen) => screen.id === source.id);
+				return {
+					title: source.name,
+					kind: "screen",
+					previews: match
+						? [{ label: source.name, image: match.thumbnail.toDataURL() }]
+						: [],
+				};
+			}
+
+			const ids = source.id.startsWith("windows:")
+				? parseCompositeWindowIds(source.id)
+				: [parseWindowId(source.id)].filter((id): id is number => Boolean(id));
+			const windows = await getNativeMacWindowSources({
+				ids,
+				thumbnailSize: ids.length > 1 ? { width: 240, height: 150 } : previewSize,
+			});
+			return {
+				title: source.name,
+				kind: ids.length > 1 ? "windows" : "window",
+				previews: windows.slice(0, 4).map((window) => ({
+					label: window.windowTitle ?? window.name,
+					image: window.thumbnail ?? null,
+				})),
+			};
+		} catch (error) {
+			console.warn("Failed to build the recording preview:", error);
+			return { title: source.name, kind: "unknown", previews: [] };
 		}
 	});
 

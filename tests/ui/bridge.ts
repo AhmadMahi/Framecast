@@ -13,6 +13,10 @@ export async function installDesktopBridge(page: Page, videoFixture = "preview.m
 			electronAPI: {
 				getAppSetting: () => null,
 				finishRecordingStartup: async () => undefined,
+				openShareWindow: async (intent: string) => {
+					document.documentElement.dataset.shareWindowIntent = intent;
+					return { success: true };
+				},
 				showProjectDashboard: async () => {
 					document.documentElement.dataset.dashboardOpened = "true";
 				},

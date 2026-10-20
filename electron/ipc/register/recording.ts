@@ -14,9 +14,13 @@ import {
 } from "electron";
 import { getHudCaptureExcludedProcessIds } from "../../../src/lib/hudCaptureProtection";
 import { showCursor } from "../../cursorHider";
-import { getHudOverlayCaptureProtectionEnabled, beginHudCaptureProtection } from "../../windows";
+import { beginHudCaptureProtection, getHudOverlayCaptureProtectionEnabled } from "../../windows";
 import { ALLOW_RECORDLY_WINDOW_CAPTURE } from "../constants";
-import { startWindowBoundsCapture, stopWindowBoundsCapture } from "../cursor/bounds";
+import {
+	focusNativeMacWindows,
+	startWindowBoundsCapture,
+	stopWindowBoundsCapture,
+} from "../cursor/bounds";
 import { startInteractionCapture, stopInteractionCapture } from "../cursor/interaction";
 import { startNativeCursorMonitor, stopNativeCursorMonitor } from "../cursor/monitor";
 import {
@@ -72,9 +76,7 @@ import {
 	waitForNativeCaptureStop,
 } from "../recording/mac";
 import { resolveRnnoiseModelPath } from "../recording/rnnoiseModel";
-import { parseCompositeWindowIds } from "./sourceMapping";
 import { resolveRecordedVideoStoragePath } from "../recording/storagePath";
-import { readMicrophoneEnhancementSetting } from "../settings/microphoneEnhancement";
 import {
 	attachWindowsCaptureLifecycle,
 	isNativeWindowsCaptureAvailable,
@@ -86,6 +88,7 @@ import {
 	shouldStartWindowsBrowserMicrophoneFallback,
 	shouldUseWindowsBrowserMicrophoneFallback,
 } from "../recording/windowsFallbacks";
+import { readMicrophoneEnhancementSetting } from "../settings/microphoneEnhancement";
 import {
 	cachedSystemCursorAssets,
 	cachedSystemCursorAssetsSourceMtimeMs,
@@ -155,6 +158,7 @@ import {
 	parseWindowId,
 } from "../utils";
 import { resolveWindowsCaptureTarget } from "../windowsCaptureSelection";
+import { parseCompositeWindowIds } from "./sourceMapping";
 import { bringSelectedWindowForward } from "./sources";
 
 const execFileAsync = promisify(execFile);
@@ -409,6 +413,11 @@ export function registerRecordingHandlers(
 			const visibleWindowBounds = source.id?.startsWith("window:")
 				? await bringSelectedWindowForward(source)
 				: null;
+			if (process.platform === "darwin" && source.id?.startsWith("windows:")) {
+				// Several windows: bring any that are minimized, hidden, or on
+				// another desktop on screen, as Zoom does when sharing starts.
+				await focusNativeMacWindows(parseCompositeWindowIds(source.id));
+			}
 
 			// Windows native capture path
 			if (process.platform === "win32") {
@@ -942,10 +951,17 @@ export function registerRecordingHandlers(
 				setNativeCaptureMicrophonePath(null);
 				setNativeCaptureStopRequested(false);
 				setNativeCapturePaused(false);
+				// macOS cannot record a window it is not drawing. Say what to do
+				// instead of passing on ScreenCaptureKit's generic failure text.
+				const windowOffScreen =
+					(source?.id?.startsWith("window:") || source?.id?.startsWith("windows:")) &&
+					/capture failure|Window not found|-3811/i.test(errorStr);
 				return {
 					success: false,
 					message: "Failed to start native ScreenCaptureKit recording",
-					error: String(error),
+					error: windowOffScreen
+						? "The window you chose is not on screen. It may be minimized or on another desktop. Switch to it, then start recording again."
+						: errorStr,
 				};
 			}
 		},
